@@ -123,6 +123,8 @@ private:
 	void parseRawTextList(const QDomNode &elem, PageItem* item, const ParagraphStyle &newStyle, int &posC);
 	void parseRawTextParagraph(const QDomNode &elem, PageItem* item, const ParagraphStyle &newStyle, int &posC);
 	void parseRawText(const QDomElement &elem, PageItem* item);
+	void parseTextNote(const QDomElement &elem, PageItem* item, const ParagraphStyle &tmpStyle, const CharStyle &tmpCStyle, const ObjStyleODT &tmpOStyle, int &posC);
+	void parseNoteBodyToSaxedText(const QDomElement &bodyElem, QString &saxedText, const ParagraphStyle &tmpStyle, const CharStyle &tmpCStyle, const ObjStyleODT &tmpOStyle);
 
 	bool parseStyleSheets(const QString& designMap);
 	bool parseStyleSheetsXML(const QDomDocument &designMapDom);

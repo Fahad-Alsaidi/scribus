@@ -25,7 +25,11 @@ for which a new license (GPL+exception) is in place.
 #include "scclocale.h"
 #include "ui/missing.h"
 #include "util.h"
-
+#include "marks.h"
+#include "textnote.h"
+#include "notesstyles.h"
+#include "pageitem_noteframe.h"
+#include "pageitem_textframe.h"
 
 QString FileFormatName()
 {
@@ -370,6 +374,153 @@ void ODTIm::parseRawText(const QDomElement &elem, PageItem* item)
 	}
 }
 
+void ODTIm::parseTextNote(const QDomElement &elem, PageItem* item, const ParagraphStyle &tmpStyle, const CharStyle &tmpCStyle, const ObjStyleODT &tmpOStyle, int &posC)
+{
+	QString noteClass = elem.attribute("text:note-class", "footnote");
+	bool isEndnote = (noteClass == "endnote");
+	QString styleName = isEndnote ? "Endnotes" : "Footnotes";
+
+	// --- ROBUST NOTESSTYLE RETRIEVAL (Prevents nullptr crashes) ---
+	NotesStyle* nStyle = m_Doc->getNotesStyle(styleName);
+
+	// Fallback 1: Case-insensitive search (in case it exists as "footnotes")
+	if (!nStyle) {
+		for (NotesStyle* ns : m_Doc->m_docNotesStylesList) {
+			if (ns->name().toLower() == styleName.toLower()) {
+				nStyle = ns;
+				break;
+			}
+		}
+	}
+
+	// Fallback 2: Try to create it fresh
+	if (!nStyle) {
+		NotesStyle defaultNS;
+		defaultNS.setName(styleName);
+		defaultNS.setEndNotes(isEndnote);
+		defaultNS.setStart(1);
+		defaultNS.setSuffix(")");
+		nStyle = m_Doc->newNotesStyle(defaultNS);
+	}
+
+	// Fallback 3: If creation failed (e.g., validateNSet returned false), use ANY existing notes style
+	if (!nStyle) {
+		if (!m_Doc->m_docNotesStylesList.isEmpty()) {
+			nStyle = m_Doc->m_docNotesStylesList.first();
+		} else {
+			// Fallback 4: Last resort, create with a guaranteed unique name
+			NotesStyle fallbackNS;
+			fallbackNS.setName(styleName + "_imported");
+			fallbackNS.setEndNotes(isEndnote);
+			fallbackNS.setStart(1);
+			fallbackNS.setSuffix(")");
+			nStyle = m_Doc->newNotesStyle(fallbackNS);
+		}
+	}
+
+	// Safety check: If we still don't have a valid style, abort gracefully to prevent crash
+	if (!nStyle) {
+		qWarning() << "ODT Import: Fatal error - could not obtain a valid NotesStyle. Skipping footnote.";
+		return;
+	}
+
+	m_Doc->setUsesMarksAndNotes(true);
+
+	QDomElement citationElem = elem.firstChildElement("text:note-citation");
+	QDomElement bodyElem = elem.firstChildElement("text:note-body");
+
+	QString citationText = citationElem.attribute("text:label");
+	if (citationText.isEmpty()) {
+		citationText = citationElem.text().trimmed();
+	}
+	if (citationText.isEmpty()) {
+		citationText = "?";
+	}
+
+	// Preserve field shading / background color on the citation mark
+	CharStyle citeCStyle = tmpCStyle;
+	ObjStyleODT citeOStyle = tmpOStyle;
+	QString citeStyleName = citationElem.attribute("text:style-name");
+	if (!citeStyleName.isEmpty()) {
+		resolveStyle(citeOStyle, citeStyleName);
+		applyCharacterStyle(citeCStyle, citeOStyle);
+	}
+
+	// Create Scribus objects
+	TextNote* note = m_Doc->newNote(nStyle);
+	Mark* mark = m_Doc->newMark();
+	mark->setType(MARKNoteMasterType);
+	mark->setString(citationText);
+	mark->setNotePtr(note);
+	note->setMasterMark(mark);
+
+	// Insert mark and apply the resolved citation style (preserves shading)
+	item->itemText.insertMark(mark, posC);
+	item->itemText.applyCharStyle(posC, 1, citeCStyle);
+	posC++;
+
+	// Parse footnote body into "Saxed Text"
+	QString saxedBodyText;
+	parseNoteBodyToSaxedText(bodyElem, saxedBodyText, tmpStyle, tmpCStyle, tmpOStyle);
+	note->setSaxedText(saxedBodyText);
+
+	// Ensure a Note Frame exists for this text frame
+	PageItem_TextFrame* textFrame = item->asTextFrame();
+	if (textFrame) {
+		bool hasFrame = false;
+		foreach (PageItem_NoteFrame* nf, textFrame->notesFramesList()) {
+			if (nf->notesStyle() == nStyle) {
+				hasFrame = true;
+				break;
+			}
+		}
+		if (!hasFrame) {
+			m_Doc->createNoteFrame(textFrame, nStyle);
+		}
+	}
+}
+
+void ODTIm::parseNoteBodyToSaxedText(const QDomElement &bodyElem, QString &saxedText, const ParagraphStyle &tmpStyle, const CharStyle &tmpCStyle, const ObjStyleODT &tmpOStyle)
+{
+	if (bodyElem.isNull()) {
+		saxedText.clear();
+		return;
+	}
+
+	// Create a temporary text frame. createPageItem does NOT add it to the document's
+	// item list, which is exactly what we want for a temporary parsing buffer.
+	PageItem* dummyItem = m_Doc->createPageItem(PageItem::TextFrame, PageItem::Unspecified, 0, 0, 10, 10, 0, CommonStrings::None, CommonStrings::None);
+	if (!dummyItem) {
+		saxedText.clear();
+		return;
+	}
+
+	dummyItem->itemText.clear();
+	dummyItem->itemText.setDefaultStyle(tmpStyle);
+
+	int dummyPos = 0;
+
+	// Reuse existing robust parsing logic to ensure all nested styling is perfectly translated
+	for (QDomNode child = bodyElem.firstChild(); !child.isNull(); child = child.nextSibling()) {
+		QDomElement childElem = child.toElement();
+		if (child.nodeName() == "text:p" || child.nodeName() == "text:h") {
+			parseTextParagraph(child, dummyItem, tmpStyle, tmpOStyle, dummyPos);
+		} else if (child.nodeName() == "text:span") {
+			parseTextSpan(childElem, dummyItem, tmpStyle, tmpCStyle, tmpOStyle, dummyPos);
+		}
+	}
+
+	// Extract the properly formatted "Saxed Text"
+	if (dummyItem->itemText.length() > 0) {
+		saxedText = dummyItem->getItemTextSaxed(0, dummyItem->itemText.length());
+	} else {
+		saxedText.clear();
+	}
+
+	// Safely delete the temporary item. Since createPageItem doesn't add it to the
+	// document's item list, we do NOT call m_Doc->Items->removeOne().
+	delete dummyItem;
+}
 /* Styled Text import */
 
 bool ODTIm::parseStyleSheets(const QString& designMap)
@@ -761,6 +912,8 @@ void ODTIm::parseTextSpan(const QDomElement &elem, PageItem* item, const Paragra
 			txt = spn.nodeValue();
 		else if (spn.nodeName() == "text:span")
 			parseTextSpan(spEl, item, tmpStyle, cStyle, odtStyle, posC);
+		else if (spn.nodeName() == "text:note")
+			parseTextNote(spEl, item, tmpStyle, cStyle, odtStyle, posC);
 		else if (spn.nodeName() == "text:s")
 		{
 			if (spEl.hasAttribute("text:c"))
@@ -935,6 +1088,8 @@ void ODTIm::parseTextParagraph(const QDomNode &elem, PageItem* item, const Parag
 			parseTextSpan(spEl, item, tmpStyle, tmpCStyle, cStyle, posC);
 		else if (spn.nodeName() == "text:a")
 			parseTextHyperlink(spEl, item, tmpStyle, tmpCStyle, cStyle, posC);
+		else if (spn.nodeName() == "text:note")
+			parseTextNote(spEl, item, tmpStyle, tmpCStyle, cStyle, posC);
 		else if (spn.nodeName() == "text:s")
 		{
 			if (spEl.hasAttribute("text:c"))
