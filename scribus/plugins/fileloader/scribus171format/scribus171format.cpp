@@ -174,7 +174,10 @@ bool Scribus171Format::paletteSupported(QIODevice* /* file */, const QString & f
 		loadRawBytes(fileName, docBytes, 1024);
 	}
 
-	int startElemPos = docBytes.indexOf("<SCRIBUSCOLORS");
+	int startElemPos = docBytes.indexOf("<ScribusColors");
+	//Remove uppercase in 1.8 format
+	if (startElemPos == -1)
+		startElemPos = docBytes.indexOf("<SCRIBUSCOLORS");
 	return (startElemPos >= 0);
 }
 
@@ -3892,6 +3895,8 @@ void Scribus171Format::readTableStyle(ScribusDoc *doc, ScXmlStreamReader& reader
 void Scribus171Format::readConditionalCellStyle(ScribusDoc *doc, ScXmlStreamReader& reader, const ScXmlStreamAttributes& attrs, CellStyle& newStyle) const
 {
 	newStyle.erase();
+	if (attrs.hasAttribute("Parent"))
+		newStyle.setParent(attrs.valueAsString("Parent"));
 	if (attrs.hasAttribute("FillColor"))
 		newStyle.setFillColor(attrs.valueAsString("FillColor"));
 	if (attrs.hasAttribute("FillShade"))
