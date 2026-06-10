@@ -1563,6 +1563,46 @@ double PageItem_Table::fillShade() const
 	return m_style.fillShade();
 }
 
+void PageItem_Table::setRTLDirection(bool rtl)
+{
+	if (m_style.rtl == rtl)
+		return;
+
+	if (UndoManager::undoEnabled())
+	{
+		auto *ss = new SimpleState(Um::TableDirection, QString(), Um::ITable);
+		ss->set("SET_TABLE_DIRECTION");
+		ss->set("OLD_DIRECTION", m_style.direction());
+		ss->set("NEW_DIRECTION", rtl);
+		undoManager->action(this,ss);
+	}
+	m_style.setDirection(rtl);
+	updateCells();
+	emit changed();
+}
+
+void PageItem_Table::unsetDirection()
+{
+	if (!m_style.isInhDirection())
+	{
+		if (UndoManager::undoEnabled())
+		{
+			auto *ss = new SimpleState(Um::TableDirectionReset, QString(), Um::ITable);
+			ss ->set("UNSET_TABLE_DIRECTION");
+			ss->set("OLD_DIRECTION", m_style.direction);
+			undoManager->action(this,ss);
+		}
+		m_style.resetDirection();
+		updateCells();
+		emit changed();
+	}
+}
+
+bool PageItem_Table::isRightToLeft() const
+{
+	retun m_style.direction();
+}
+
 void PageItem_Table::setLeftBorder(const TableBorder& border)
 {
 	if (UndoManager::undoEnabled())

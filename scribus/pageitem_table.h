@@ -518,6 +518,13 @@ public:
 	/// Returns the fill shade of this table.
 	double fillShade() const;
 
+	/// Sets the table direction. true = RTL, false = LTR.
+	void setRTLDirection(bool rtl);
+	/// Resets direction to inherited from style.
+	void unsetDirection();
+	/// Returns true if the table is right-to-left.
+	bool isRightToLeft() const;
+
 	/// Sets the left border of this table to @a border.
 	void setLeftBorder(const TableBorder& border);
 
@@ -577,7 +584,6 @@ public:
 
 	/// Unsets the style of this table.
 	void unsetStyle();
-
 	/// Unsets direct formatting
 	void unsetDirectFormatting();
 
