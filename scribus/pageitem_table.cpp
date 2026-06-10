@@ -1565,7 +1565,7 @@ double PageItem_Table::fillShade() const
 
 void PageItem_Table::setRTLDirection(bool rtl)
 {
-	if (m_style.rtl == rtl)
+	if (m_style.direction() == rtl)
 		return;
 
 	if (UndoManager::undoEnabled())
@@ -1589,7 +1589,7 @@ void PageItem_Table::unsetDirection()
 		{
 			auto *ss = new SimpleState(Um::TableDirectionReset, QString(), Um::ITable);
 			ss ->set("UNSET_TABLE_DIRECTION");
-			ss->set("OLD_DIRECTION", m_style.direction);
+			ss->set("OLD_DIRECTION", m_style.direction());
 			undoManager->action(this,ss);
 		}
 		m_style.resetDirection();
@@ -1600,7 +1600,7 @@ void PageItem_Table::unsetDirection()
 
 bool PageItem_Table::isRightToLeft() const
 {
-	retun m_style.direction();
+	return m_style.direction();
 }
 
 void PageItem_Table::setLeftBorder(const TableBorder& border)
@@ -2914,6 +2914,16 @@ void PageItem_Table::restore(UndoState *state, bool isUndo)
 		restoreTableRemoveColumns(simpleState, isUndo);
 		doUpdate = true;
 	}
+	else if (simpleState->contains("SET_TABLE_DIRECTION"))
+	{
+		restoreTableDirection(simpleState, isUndo);
+		doUpdate = true;
+	}
+	else if (simpleState->contains("UNSET_TABLE_DIRECTION"))
+	{
+		restoreTableDirectionReset(simpleState, isUndo);
+		doUpdate = true;
+	}
 	else
 	{
 		PageItem::restore(state, isUndo);
@@ -3030,6 +3040,26 @@ void PageItem_Table::restoreTableFillColorReset(SimpleState *state, bool isUndo)
 	{
 		unsetFillColor();
 	}
+}
+
+void PageItem_Table::restoreTableDirection(SimpleState *state, bool isUndo)
+{
+	if (isUndo)
+		m_style.setDirection(state->getBool("OLD_DIRECTION"));
+	else
+		m_style.setDirection(state->getBool("NEW_DIRECTION"));
+	updateCells();
+	emit changed();
+}
+
+void PageItem_Table::restoreTableDirectionReset(SimpleState *state, bool isUndo)
+{
+	if (isUndo)
+		m_style.setDirection(state->getBool("OLD_DIRECTION"));
+	else
+		m_style.resetDirection();
+	updateCells();
+	emit changed();
 }
 
 void PageItem_Table::restoreTableFillShade(SimpleState *state, bool isUndo)

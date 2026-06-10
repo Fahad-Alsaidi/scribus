@@ -460,6 +460,8 @@ public:
 	static QString TableRowRemove;
 	static QString TableColumnInsert;
 	static QString TableColumnRemove;
+	static QString TableDirection;
+	static QString TableDirectionReset;
 	static QString SetFont;
 	static QString SetFontSize;
 	static QString SetFontWidth;

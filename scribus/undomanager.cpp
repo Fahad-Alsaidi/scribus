@@ -674,6 +674,8 @@ void UndoManager::languageChange()
 	UndoManager::TableRowRemove     = tr("Delete table row");
 	UndoManager::TableColumnInsert  = tr("Insert table column");
 	UndoManager::TableColumnRemove  = tr("Delete table column");
+	UndoManager::TableDirection     = tr("Table direction");
+	UndoManager::TableDirectionReset = tr("Table direction reset");
 	UndoManager::SetFont            = tr("Set font");
 	UndoManager::SetFontSize        = tr("Set font size");
 	UndoManager::StartArrowScale    = tr("Set start arrow scale");
@@ -1049,6 +1051,8 @@ QString UndoManager::TableRowInsert     = "";
 QString UndoManager::TableRowRemove     = "";
 QString UndoManager::TableColumnInsert  = "";
 QString UndoManager::TableColumnRemove  = "";
+QString UndoManager::TableDirection     = "";
+QString UndoManager::TableDirectionReset= "";
 QString UndoManager::SetFont            = "";
 QString UndoManager::SetFontSize        = "";
 QString UndoManager::SetFontWidth       = "";

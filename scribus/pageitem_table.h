@@ -784,6 +784,12 @@ private:
 	// Undo/redo unsetFillColor action
 	void restoreTableFillColorReset(SimpleState *state, bool isUndo);
 
+	// Undo/redo setTableDirection action
+	void restoreTableDirection(SimpleState *state, bool isUndo);
+
+	// Undo/redo unsetTableDirection action
+	void restoreTableDirectionReset(SimpleState *state, bool isUndo);
+
 	// Undo/redo setFillShade action
 	void restoreTableFillShade(SimpleState *state, bool isUndo);
 
