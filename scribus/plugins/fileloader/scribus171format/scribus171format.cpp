@@ -3830,6 +3830,8 @@ void Scribus171Format::readTableStyle(ScribusDoc *doc, ScXmlStreamReader& reader
 		newStyle.setFillColor(attrs.valueAsString("FillColor"));
 	if (attrs.hasAttribute("FillShade"))
 		newStyle.setFillShade(attrs.valueAsDouble("FillShade"));
+	if (attrs.hasAttribute("Direction"))
+		newStyle.setDirection(attrs.valueAsDouble("Direction"));
 	if (attrs.hasAttribute("ParagraphStyleName"))
 		newStyle.setParagraphStyleName(attrs.valueAsString("ParagraphStyleName"));
 

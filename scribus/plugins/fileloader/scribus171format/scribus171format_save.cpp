@@ -1035,6 +1035,8 @@ void Scribus171Format::putTableStyle(ScXmlStreamWriter &docu, const TableStyle &
 		docu.writeAttribute("FillColor", style.fillColor());
 	if (!style.isInhFillShade())
 		docu.writeAttribute("FillShade", style.fillShade());
+	if (!style.isInhDirection())
+		docu.writeAttribute("Direction", style.direction() ? 1 :0);
 	if (!style.isInhParagraphStyleName())
 		docu.writeAttribute("ParagraphStyleName", style.paragraphStyleName());
 	// Config attributes -- must precede child elements.
@@ -2468,6 +2470,8 @@ void Scribus171Format::WriteObjects(ScribusDoc *doc, ScXmlStreamWriter& docu, co
 				docu.writeAttribute("FillColor", tableItem->fillColor());
 			if ((tstyle.isEmpty()) || ((!tstyle.isEmpty()) && ( !ts.isInhFillShade())))
 				docu.writeAttribute("FillShade", tableItem->fillShade());
+			if ((tstyle.isEmpty()) || ((!tstyle.isEmpty()) && ( !ts.isInhDirection())))
+				docu.writeAttribute("FillShade", tableItem->isRightToLeft());
 			if ((tstyle.isEmpty()) || ((!tstyle.isEmpty()) && ( !ts.isInhLeftBorder())))
 			{
 				TableBorder tbLeft = tableItem->leftBorder();
