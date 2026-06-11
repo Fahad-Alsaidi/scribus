@@ -51,6 +51,8 @@ PropertiesPalette_Table::PropertiesPalette_Table(QWidget* parent) : QWidget(pare
 
 	connect(tableStyleCombo, SIGNAL(newStyle(QString)), this, SLOT(setTableStyle(QString)));
 	connect(cellStyleCombo, SIGNAL(newStyle(QString)), this, SLOT(setCellStyle(QString)));
+
+	connect (directionCheckBox, SIGNAL(stateChanged(int)),this, SLOT(onDirectionChanged(int)));
 }
 
 void PropertiesPalette_Table::iconSetChange()
@@ -160,6 +162,7 @@ void PropertiesPalette_Table::handleSelectionChanged()
 	updateFillControls();
 	updateStyleControls();
 	updatePaddingControls();
+	updateDirectionControl();
 }
 
 void PropertiesPalette_Table::handleCellSelectionChanged()
@@ -171,6 +174,7 @@ void PropertiesPalette_Table::handleCellSelectionChanged()
 	updateFillControls();
 	updateStyleControls();
 	syncSideSelectorToCells();
+	updateDirectionControl();
 	on_sideSelector_selectionChanged();
 }
 
@@ -259,6 +263,25 @@ void PropertiesPalette_Table::toggleLabelVisibility(bool v)
 	borderLineWidthLabel->setLabelVisibility(v);
 	fillColorLabel->setLabelVisibility(v);
 	fillShadeLabel->setLabelVisibility(v);
+}
+
+void PropertiesPalette_Table::updateDirectionControl()
+{
+	if (m_item && m_item->isTable())
+	{
+		PageItem_Table* table = m_item->asTable();
+		directionCheckBox->setEnabled(true);
+		bool sigBlocked = directionCheckBox->blockSignals(true);
+		directionCheckBox->setChecked(table->isRightToLeft());
+		directionCheckBox->blockSignals(sigBlocked);
+	}
+	else
+	{
+		directionCheckBox->setEnabled(false);
+		directionCheckBox->blockSignals(true);
+		directionCheckBox->setChecked(false);
+		directionCheckBox->blockSignals(false);
+	}
 }
 
 void PropertiesPalette_Table::setTableStyle(const QString &name)
@@ -782,6 +805,17 @@ void PropertiesPalette_Table::on_cellPaddingWidget_valuesChanged(const MarginStr
 
 	m_item->asTable()->adjustTable();
 	m_item->asTable()->update();
+}
+
+void PropertiesPalette_Table::onDirectionChanged(int state)
+{
+	if (!m_item || !m_item->isTable())
+		return;
+	PageItem_Table* table = m_item->asTable();
+	if (state == Qt::Checked)
+		table->setDirection(true);
+	else
+		table->setDirection(false);
 }
 
 void PropertiesPalette_Table::syncSideSelectorToCells()

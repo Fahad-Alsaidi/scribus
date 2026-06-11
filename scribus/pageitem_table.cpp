@@ -1569,7 +1569,7 @@ double PageItem_Table::fillShade() const
 	return m_style.fillShade();
 }
 
-void PageItem_Table::setRTLDirection(bool rtl)
+void PageItem_Table::setDirection(bool rtl)
 {
 	if (m_style.direction() == rtl)
 		return;

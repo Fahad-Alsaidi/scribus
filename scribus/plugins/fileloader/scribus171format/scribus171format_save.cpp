@@ -2503,7 +2503,7 @@ void Scribus171Format::WriteObjects(ScribusDoc *doc, ScXmlStreamWriter& docu, co
 			if ((tstyle.isEmpty()) || ((!tstyle.isEmpty()) && ( !ts.isInhFillShade())))
 				docu.writeAttribute("FillShade", tableItem->fillShade());
 			if ((tstyle.isEmpty()) || ((!tstyle.isEmpty()) && ( !ts.isInhDirection())))
-				docu.writeAttribute("FillShade", tableItem->isRightToLeft());
+				docu.writeAttribute("Direction", tableItem->isRightToLeft());
 			if ((tstyle.isEmpty()) || ((!tstyle.isEmpty()) && ( !ts.isInhLeftBorder())))
 			{
 				TableBorder tbLeft = tableItem->leftBorder();

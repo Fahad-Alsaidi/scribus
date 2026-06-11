@@ -69,6 +69,8 @@ public slots:
 	void updateStyleControls();
 	void updatePaddingControls();
 	void toggleLabelVisibility(bool v);
+	// Update direction control
+	void updateDirectionControl();
 
 private slots:
 	void setTableStyle(const QString& name);
@@ -97,6 +99,9 @@ private slots:
 	void on_buttonClearTableStyle_clicked();
 	void on_buttonClearCellStyle_clicked();
 	void on_cellPaddingWidget_valuesChanged(const MarginStruct& padding);
+
+	// Handle table direction change
+	void onDirectionChanged(int state);
 
 	/// Syncs the side selector's visual state to reflect the actual borders
 	/// on the currently-selected (or all) cells.

@@ -519,7 +519,7 @@ public:
 	double fillShade() const;
 
 	/// Sets the table direction. true = RTL, false = LTR.
-	void setRTLDirection(bool rtl);
+	void setDirection(bool rtl);
 	/// Resets direction to inherited from style.
 	void unsetDirection();
 	/// Returns true if the table is right-to-left.
