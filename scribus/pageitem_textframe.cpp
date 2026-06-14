@@ -2361,8 +2361,14 @@ void PageItem_TextFrame::layout()
 					}
 				}
 				// set the offset for Drop Cap, Bullet & Number List
+				// set the offset for Drop Cap, Bullet & Number List
 				current.glyphs[currentIndex].extraWidth += style.parEffectOffset();
-
+				// RTL: the line is reversed at render time, so trailing extraWidth lands
+				// on the cap's OUTER (right) edge, not between the cap and the text. Shift
+				// the cap glyph to the right of its advance box so the reserved offset
+				// falls on the inner (left) side, next to the text.
+				if (style.direction() == ParagraphStyle::RTL && DropCmode)
+					current.glyphs[currentIndex].xoffset += style.parEffectOffset();
 				if (DropCmode)
 				{
 					DropCmode = false;
