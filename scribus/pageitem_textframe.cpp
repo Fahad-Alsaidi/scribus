@@ -2367,7 +2367,7 @@ void PageItem_TextFrame::layout()
 				// on the cap's OUTER (right) edge, not between the cap and the text. Shift
 				// the cap glyph to the right of its advance box so the reserved offset
 				// falls on the inner (left) side, next to the text.
-				if (style.direction() == ParagraphStyle::RTL && DropCmode)
+				if (style.direction() == ParagraphStyle::RTL && (DropCmode || BulNumMode))
 					current.glyphs[currentIndex].xoffset += style.parEffectOffset();
 				if (DropCmode)
 				{
