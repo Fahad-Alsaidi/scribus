@@ -60,3 +60,8 @@ void TabManager::setTabList(const QList<ParagraphStyle::TabRecord>& tabList)
 {
 	m_tabList = tabList;
 }
+
+void TabManager::setRtl(bool rtl)
+{
+	TabList->setRtl(rtl);
+}

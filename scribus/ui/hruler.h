@@ -66,6 +66,7 @@ public:
 
 	double ruleSpacing() const;
 	void   setItem(PageItem * item);
+	void   setRtl(bool rtl);
 	void   textMode(bool state) { m_textEditMode = state; }
 	double textBase() const; // left text edge in canvas coord
 	double textWidth() const;
@@ -97,6 +98,7 @@ private:
 	void drawMarker(QPainter& p) const;
 	void drawNumber(const QString& num, int startx, QPainter & p) const;
 	void updateTabList();
+	QCursor tabulatorCursor() const;
 
 	PageItem* m_currItem {nullptr};
 	QList<ParagraphStyle::TabRecord> m_tabValues;
@@ -106,6 +108,7 @@ private:
 	bool m_drawMark {false};
 	bool m_mousePressed {false};
 	bool m_reverse {false};
+	bool m_rtl {false};
 	bool m_textEditMode {false};
 	double m_colGap {0.0};
 	double m_cor {0.0};

@@ -2737,6 +2737,9 @@ void ScribusMainWindow::HaveNewSel()
 			// to go: (av)
 			contentPalette->update(doc->currentStyle);
 			setStyleEffects(doc->currentStyle.charStyle().effects());
+			view->horizRuler->setItem(currItem);
+			view->horizRuler->textMode(false);
+			view->horizRuler->update();
 		}
 		break;
 	case PageItem::Table:
@@ -6264,6 +6267,11 @@ void ScribusMainWindow::setNewDirection(int i)
 	contentPalette->updateTextDirection(i);
 	PageItem *currItem = doc->m_Selection->itemAt(0);
 	setTBvals(currItem);
+	if (currItem && currItem->isTextFrame())
+	{
+		view->horizRuler->setRtl(i == 1); // 1 = RTL, 0 = LTR
+		view->horizRuler->update();
+	}
 }
 
 void ScribusMainWindow::setNewParStyle(const QString& name)
