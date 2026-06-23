@@ -1763,7 +1763,12 @@ void PageItem_TextFrame::layout()
 				}
 				//set left indentation
 				current.leftIndent = 0.0;
-				if (current.addLeftIndent && ((maxDX == 0) || DropCmode || BulNumMode))
+				// RTL: a line beside an active drop cap must reserve the cap band on the
+				// visual right; this block is normally skipped once maxDX != 0, so force
+				// it to run for those follow-lines.
+				bool rtlDropFollow = (style.direction() == ParagraphStyle::RTL)
+									 && current.hasDropCap && (maxDX > current.colLeft);
+				if (current.addLeftIndent && ((maxDX == 0) || DropCmode || BulNumMode || rtlDropFollow))
 				{
 					current.leftIndent = style.leftMargin() + autoLeftIndent;
 					if (itemText.isBlockStart(a))
@@ -1798,6 +1803,14 @@ void PageItem_TextFrame::layout()
 							}
 						}
 					}
+				// RTL drop-cap follow-lines: reserve the cap band on the visual right.
+				// Text starts flush at colLeft (set in the restartX change); the right
+				// side loses width so it doesn't run under the cap.
+				if (rtlDropFollow)
+				{
+					current.rightIndent += (maxDX - current.colLeft);
+					current.mustLineEnd = current.colRight - current.rightIndent;
+				}
 					current.addLeftIndent = false;
 				}
 			}
@@ -2376,6 +2389,13 @@ void PageItem_TextFrame::layout()
 				}
 				// set the offset for Drop Cap, Bullet & Number List
 				current.glyphs[currentIndex].extraWidth += style.parEffectOffset();
+				// RTL: the line is reversed at render time, so trailing extraWidth lands on
+				// the marker's OUTER (right) edge, not between the marker and the text. Shift
+				// the marker glyph to the right of its advance box so the reserved offset
+				// falls on the inner (left) side, next to the text. Drop caps and bullet /
+				// numbered-list markers share this offset mechanism.
+				if (style.direction() == ParagraphStyle::RTL && (DropCmode || BulNumMode))
+					current.glyphs[currentIndex].xoffset += style.parEffectOffset();
 
 				if (DropCmode)
 				{
@@ -2625,6 +2645,11 @@ void PageItem_TextFrame::layout()
 				{
 					if (current.addLine && current.breakIndex >= 0)
 					{
+						qDebug() << "DCAP-COMMIT" << (style.direction()==ParagraphStyle::RTL?"RTL":"LTR")
+							 << "DropCapDrop=" << DropCapDrop
+							 << "lineData.y=" << current.lineData.y
+							 << "g0.firstChar=" << current.glyphs[0].firstChar()
+							 << "g0.hasDropCap=" << current.glyphs[0].hasFlag(ScLayout_DropCap);
 						if (current.glyphs[0].hasFlag(ScLayout_DropCap))
 						{
 							// put line back to top
@@ -2672,7 +2697,12 @@ void PageItem_TextFrame::layout()
 					inOverflow = false;
 					outs = false;
 					current.startOfCol = false;
-					current.restartX = current.xPos = qMax(maxDX, current.colLeft);
+					if (style.direction() == ParagraphStyle::RTL)
+						// RTL: drop cap sits on the visual right, so follow-lines start flush
+							// at the column left; the reserve is taken from the right (Change 1).
+								current.restartX = current.xPos = current.colLeft;
+					else
+						current.restartX = current.xPos = qMax(maxDX, current.colLeft);
 					lastLineY = current.rowDesc;
 					if (current.hasDropCap)
 					{
@@ -2882,6 +2912,11 @@ void PageItem_TextFrame::layout()
 
 				current.indentLine(style, OFs);
 			}
+			qDebug() << "DCAP-COMMIT" << (style.direction()==ParagraphStyle::RTL?"RTL":"LTR")
+					 << "DropCapDrop=" << DropCapDrop
+					 << "lineData.y=" << current.lineData.y
+					 << "g0.firstChar=" << current.glyphs[0].firstChar()
+					 << "g0.hasDropCap=" << current.glyphs[0].hasFlag(ScLayout_DropCap);
 			if (current.glyphs[0].hasFlag(ScLayout_DropCap))
 			{
 				// put line back to top
