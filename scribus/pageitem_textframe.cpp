@@ -1763,28 +1763,42 @@ void PageItem_TextFrame::layout()
 				}
 				//set left indentation
 				current.leftIndent = 0.0;
-				// RTL: a line sitting beside an active drop cap must reserve the cap
-				// band on the visual RIGHT. The indent block is normally skipped once
-				// maxDX != 0, so force it to run for these follow-lines.
-				bool rtlDropFollow = (style.direction() == ParagraphStyle::RTL)
-									 && current.hasDropCap && (maxDX > current.colLeft);
-				if (current.addLeftIndent && ((maxDX == 0) || DropCmode || BulNumMode || rtlDropFollow))
+				if (current.addLeftIndent && ((maxDX == 0) || DropCmode || BulNumMode))
 				{
-					if (style.direction() == ParagraphStyle::RTL)
+					current.leftIndent = style.leftMargin() + autoLeftIndent;
+					if (itemText.isBlockStart(a))
 					{
-						// RTL: logical left margin is on the visual right side
-						// logical right margin is on the visual left side
-						current.leftIndent = style.rightMargin();
-						current.rightIndent = style.leftMargin();
-
-						if (itemText.isBlockStart(a))
-							current.rightIndent += style.firstIndent();
-						// reserve the drop-cap band on the visual right for follow-lines
-						if (rtlDropFollow)
-							current.rightIndent += (maxDX - current.colLeft);
-						// line width should consider RTL indent when it breaks the line.
-						current.mustLineEnd = current.colRight - current.rightIndent;
+						if (style.direction() == ParagraphStyle::RTL)
+						{
+							// use rightIndent to not mess with old behavior
+							current.rightIndent = style.firstIndent();
+							// line width should consider RTL indent when it breaks the line.
+							current.mustLineEnd = current.colRight - current.rightIndent;
+						}
+						else
+							current.leftIndent += style.firstIndent();
+						if (BulNumMode || DropCmode)
+						{
+							if (style.parEffectIndent())
+							{
+								double effectWidth = 0.0;
+								for (int j = i; shapedText.haveMoreText(j, glyphClusters); ++j)
+								{
+									const auto& glyph = glyphClusters[j];
+									if (glyph.firstChar() != a)
+										break;
+									effectWidth += glyph.width();
+								}
+								current.leftIndent -= style.parEffectOffset() + effectWidth;
+								if (current.leftIndent < 0.0)
+								{
+									autoLeftIndent = abs(current.leftIndent);
+									current.leftIndent = 0.0;
+								}
+							}
+						}
 					}
+					current.addLeftIndent = false;
 				}
 			}
 			current.recalculateY = true;
@@ -2361,14 +2375,8 @@ void PageItem_TextFrame::layout()
 					}
 				}
 				// set the offset for Drop Cap, Bullet & Number List
-				// set the offset for Drop Cap, Bullet & Number List
 				current.glyphs[currentIndex].extraWidth += style.parEffectOffset();
-				// RTL: the line is reversed at render time, so trailing extraWidth lands
-				// on the cap's OUTER (right) edge, not between the cap and the text. Shift
-				// the cap glyph to the right of its advance box so the reserved offset
-				// falls on the inner (left) side, next to the text.
-				if (style.direction() == ParagraphStyle::RTL && (DropCmode || BulNumMode))
-					current.glyphs[currentIndex].xoffset += style.parEffectOffset();
+
 				if (DropCmode)
 				{
 					DropCmode = false;
@@ -2664,10 +2672,7 @@ void PageItem_TextFrame::layout()
 					inOverflow = false;
 					outs = false;
 					current.startOfCol = false;
-					if (style.direction() == ParagraphStyle::RTL)
-						current.restartX = current.xPos = current.colLeft;
-					else
-						current.restartX = current.xPos = qMax(maxDX, current.colLeft);
+					current.restartX = current.xPos = qMax(maxDX, current.colLeft);
 					lastLineY = current.rowDesc;
 					if (current.hasDropCap)
 					{
