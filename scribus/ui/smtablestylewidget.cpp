@@ -21,17 +21,21 @@ SMTableStyleWidget::SMTableStyleWidget(QWidget *parent)
 {
 	setupUi(this);
 
-	fillColor->setPixmapType(ColorCombo::fancyPixmaps);
-	fillColor->addItem(CommonStrings::tr_NoneColor);
-	borderLineColor->setPixmapType(ColorCombo::fancyPixmaps);
-	borderLineColor->addItem(CommonStrings::tr_NoneColor);
-
 	sideSelector->setInnerActive(false);
 	sideSelector->setStyle(TableSideSelector::TableStyle);
+
+	buttonLineColor->colorButton->setContext(Context::TableCellStroke);
+	buttonLineColor->setColor(CommonStrings::tr_NoneColor);
+	buttonLineColor->setText(tr("Color"));
+
+	buttonFillColor->colorButton->setContext(Context::TableCellFill);
+	buttonFillColor->setColor(CommonStrings::tr_NoneColor);
+	buttonFillColor->setText(tr("Color"));
 
 	iconSetChange();
 
 	connect(ScQApp, SIGNAL(iconSetChanged()), this, SLOT(iconSetChange()));
+	connect(buttonLineColor->colorButton, &ColorButton::changed, this, &SMTableStyleWidget::borderLineColorChanged);
 }
 
 void SMTableStyleWidget::changeEvent(QEvent *e)
@@ -45,20 +49,25 @@ void SMTableStyleWidget::changeEvent(QEvent *e)
 void SMTableStyleWidget::iconSetChange()
 {
 	IconManager& iconManager = IconManager::instance();
-	fillColorIcon->setPixmap(iconManager.loadPixmap("color-fill"));
-	fillShadeLabel->setPixmap(iconManager.loadPixmap("shade") );
 	addBorderLineButton->setIcon(iconManager.loadIcon("stroke-add"));
 	removeBorderLineButton->setIcon(iconManager.loadIcon("stroke-remove"));
+	cellStyleClearButton->setIcon(iconManager.loadIcon("reset"));
+	buttonFillColor->setPixmap(iconManager.loadPixmap("color-fill"));
+	buttonLineColor->setPixmap(iconManager.loadPixmap("color-stroke"));
+	labelCellStyle->setPixmap(iconManager.loadPixmap("table-cell-style"));
+	labelParagraphStyle->setPixmap(iconManager.loadPixmap("paragraph-style"));
+	editingAreaLabel->setPixmap(iconManager.loadPixmap("table-area"));
 }
 
 void SMTableStyleWidget::handleUpdateRequest(int updateFlags)
 {
 	if (!m_Doc)
 		return;
-	if (updateFlags & reqColorsUpdate)
-		fillFillColorCombo(m_Doc->PageColors);
 	if (updateFlags & reqTextStylesUpdate)
+	{
 		paragraphStyleComboBox->updateStyleList();
+		basedOnComboBox->updateStyleList();
+	}
 }
 
 void SMTableStyleWidget::setDoc(ScribusDoc* doc)
@@ -70,8 +79,10 @@ void SMTableStyleWidget::setDoc(ScribusDoc* doc)
 	if (!m_Doc)
 		return;
 
-	fillFillColorCombo(m_Doc->PageColors);
+	buttonLineColor->colorButton->setDoc(m_Doc);
+	buttonFillColor->colorButton->setDoc(m_Doc);
 	paragraphStyleComboBox->setDoc(m_Doc);
+	basedOnComboBox->setDoc(m_Doc);
 	connect(m_Doc->scMW(), SIGNAL(UpdateRequest(int)), this , SLOT(handleUpdateRequest(int)));
 }
 
@@ -87,8 +98,8 @@ void SMTableStyleWidget::show(TableStyle *tableStyle, QList<TableStyle> &tableSt
 	rebuildAreaCombo(tableStyle);
 	showFillForCurrentArea(tableStyle);
 	showParagraphStyleForCurrentArea(tableStyle);
-
 	showBordersForCurrentArea(tableStyle);
+	showBasedOnForCurrentArea(tableStyle);
 
 	int headerRowCount = tableStyle->headerRows();
 	int totalRowCount = tableStyle->totalRows();
@@ -98,6 +109,8 @@ void SMTableStyleWidget::show(TableStyle *tableStyle, QList<TableStyle> &tableSt
 	setCheck(bandedColumnsCheckBox, tableStyle->bandedColumns());
 	setCheck(firstColumnCheckBox, tableStyle->firstColumn());
 	setCheck(lastColumnCheckBox, tableStyle->lastColumn());
+	setCheck(lastColumnCheckBox, tableStyle->lastColumn());
+	setCombo(tableDirectionComboBox, tableStyle->tableRTL() ? 1 : 0);
 
 	parentCombo->clear();
 	parentCombo->addItem( tableStyle->isDefaultStyle()? tr("A default style cannot be assigned a parent style") : "");
@@ -114,7 +127,9 @@ void SMTableStyleWidget::show(TableStyle *tableStyle, QList<TableStyle> &tableSt
 	}
 
 	if (tableStyle->isDefaultStyle() || !hasParent)
+	{
 		parentCombo->setCurrentIndex(0);
+	}
 	else if (hasParent)
 	{
 		int index = parentCombo->findText(tableStyle->parentStyle()->name());
@@ -147,10 +162,6 @@ void SMTableStyleWidget::showColors(const QList<TableStyle*> &tableStyles)
 		}
 		d = tableStyles[i]->fillShade();
 	}
-	if (d == -30000)
-		fillShade->setText( tr("Shade"));
-	else
-		fillShade->setValue(qRound(d));
 	QString s;
 	for (int i = 0; i < tableStyles.count(); ++i)
 	{
@@ -161,26 +172,22 @@ void SMTableStyleWidget::showColors(const QList<TableStyle*> &tableStyles)
 		}
 		s = tableStyles[i]->fillColor();
 	}
-	if (s.isEmpty())
-	{
-		if (fillColor->itemText(fillColor->count() - 1) != "")
-			fillColor->addItem("");
-		fillColor->setCurrentIndex(fillColor->count() - 1);
-	}
-	else
-		fillColor->setCurrentText(s);
+
+	buttonFillColor->setColor(s, qRound(d));
 }
 
 void SMTableStyleWidget::languageChange()
 {
 	retranslateUi(this);
 
-	if (fillColor->count() > 0)
-	{
-		bool fillColorBlocked = fillColor->blockSignals(true);
-		fillColor->setItemText(0, CommonStrings::tr_NoneColor);
-		fillColor->blockSignals(fillColorBlocked);
-	}
+	buttonLineColor->colorButton->setPersistentToolTip( tr("Border color of table"));
+	buttonLineColor->setText(tr("Color"));
+
+	buttonFillColor->colorButton->setPersistentToolTip( tr("Fill color of table"));
+	buttonFillColor->setText(tr("Color"));
+
+	borderLineStyleLabel->setText(tr("Type"));
+	borderLineWidthLabel->setText(tr("Width"));
 }
 
 void SMTableStyleWidget::setBorders(const TableBorder& left, const TableBorder& right,
@@ -191,15 +198,28 @@ void SMTableStyleWidget::setBorders(const TableBorder& left, const TableBorder& 
 	m_topBorder = top;
 	m_bottomBorder = bottom;
 
-	on_sideSelector_selectionChanged();
-}
+	// Select the sides that have a border so the line list shows them. Without
+	// this, a side whose selection went stale (e.g. its line was removed, then
+	// restored by a reset) keeps a border value the widget never displays.
+	TableSides sel = TableSide::None;
+	if (!left.isNull())
+		sel |= TableSide::Left;
+	if (!right.isNull())
+		sel |= TableSide::Right;
+	if (!top.isNull())
+		sel |= TableSide::Top;
+	if (!bottom.isNull())
+		sel |= TableSide::Bottom;
 
-void SMTableStyleWidget::fillFillColorCombo(ColorList &colors)
-{
-	fillColor->clear();
-	fillColor->setColors(colors, true);
-	borderLineColor->clear();
-	borderLineColor->setColors(colors, true);
+	bool b = sideSelector->blockSignals(true);
+	sideSelector->setSelection(sel);
+	sideSelector->blockSignals(b);
+
+	// Programmatic refresh: sync m_lastSelection so the selection-change
+	// handler does not treat this as a user toggle.
+	m_lastSelection = sel;
+
+	on_sideSelector_selectionChanged();
 }
 
 void SMTableStyleWidget::on_sideSelector_selectionChanged()
@@ -275,12 +295,9 @@ void SMTableStyleWidget::on_borderLineList_currentRowChanged(int row)
 	{
 		borderLineWidth->setEnabled(false);
 		borderLineWidthLabel->setEnabled(false);
-		borderLineColor->setEnabled(false);
-		borderLineColorLabel->setEnabled(false);
+		buttonLineColor->setEnabled(false);
 		borderLineStyle->setEnabled(false);
 		borderLineStyleLabel->setEnabled(false);
-		borderLineShade->setEnabled(false);
-		borderLineShadeLabel->setEnabled(false);
 		return;
 	}
 
@@ -291,17 +308,13 @@ void SMTableStyleWidget::on_borderLineList_currentRowChanged(int row)
 
 	borderLineWidth->setEnabled(true);
 	borderLineWidthLabel->setEnabled(true);
-	borderLineColor->setEnabled(true);
-	borderLineColorLabel->setEnabled(true);
+	buttonLineColor->setEnabled(true);
 	borderLineStyle->setEnabled(true);
 	borderLineStyleLabel->setEnabled(true);
-	borderLineShade->setEnabled(true);
-	borderLineShadeLabel->setEnabled(true);
 
 	borderLineWidth->showValue(line.width());
-	setCurrentComboItem(borderLineColor, line.color());
+	buttonLineColor->setColor(line.color(), line.shade());
 	borderLineStyle->setCurrentIndex(static_cast<int>(line.style()) - 1);
-	borderLineShade->setValue(line.shade());
 }
 
 void SMTableStyleWidget::on_addBorderLineButton_clicked()
@@ -336,29 +349,17 @@ void SMTableStyleWidget::on_borderLineWidth_valueChanged(double width)
 	emit bordersChanged(sideSelector->selection(), m_currentBorder);
 }
 
-void SMTableStyleWidget::on_borderLineShade_valueChanged(double shade)
+void SMTableStyleWidget::borderLineColorChanged()
 {
 	int index = borderLineList->currentRow();
 	if (index < 0)
 		return;
 	TableBorderLine line = m_currentBorder.borderLines().at(index);
-	line.setShade(shade);
-	m_currentBorder.replaceBorderLine(index, line);
-	mirrorCurrentBorderToSelectedSides();
-	updateBorderLineListItem();
-	emit bordersChanged(sideSelector->selection(), m_currentBorder);
-}
-
-void SMTableStyleWidget::on_borderLineColor_textActivated(const QString& colorName)
-{
-	int index = borderLineList->currentRow();
-	if (index < 0)
-		return;
-	TableBorderLine line = m_currentBorder.borderLines().at(index);
-	QString color = colorName;
-	if (colorName == CommonStrings::tr_NoneColor)
+	QString color = buttonLineColor->colorButton->colorName();
+	if (color == CommonStrings::tr_NoneColor)
 		color = CommonStrings::None;
 	line.setColor(color);
+	line.setShade(buttonLineColor->colorButton->colorData().Shade);
 	m_currentBorder.replaceBorderLine(index, line);
 	mirrorCurrentBorderToSelectedSides();
 	updateBorderLineListItem();
@@ -421,9 +422,9 @@ void SMTableStyleWidget::updateBorderLineListItem()
 		return;
 
 	QString text = QString(" %1%2 %3").arg(borderLineWidth->getValue()).arg(borderLineWidth->suffix(), CommonStrings::translatePenStyleName(static_cast<Qt::PenStyle>(borderLineStyle->currentIndex() + 1)));
-	if (borderLineColor->currentColor() != CommonStrings::None)
+	if (buttonLineColor->colorButton->colorName() != CommonStrings::None)
 	{
-		QPixmap icon = getWidePixmap(getColor(borderLineColor->currentColor(), borderLineShade->value()));
+		QPixmap icon = getWidePixmap(getColor(buttonLineColor->colorButton->colorName(), buttonLineColor->colorButton->colorData().Shade));
 		item->setIcon(icon);
 	}
 	item->setText(text);
@@ -449,6 +450,13 @@ void SMTableStyleWidget::setSpin(QSpinBox* sb, int v, bool enabled)
 	sb->setValue(v);
 	sb->setEnabled(enabled);
 	sb->blockSignals(b);
+}
+
+void SMTableStyleWidget::setCombo(QComboBox* cb, int index)
+{
+	bool blocked = cb->blockSignals(true);
+	cb->setCurrentIndex(index);
+	cb->blockSignals(blocked);
 }
 
 void SMTableStyleWidget::rebuildAreaCombo(TableStyle* tableStyle)
@@ -503,26 +511,26 @@ void SMTableStyleWidget::showFillForCurrentArea(TableStyle *tableStyle)
 		const TableStyle *parent = dynamic_cast<const TableStyle*>(tableStyle->parentStyle());
 		bool hasParent = tableStyle->hasParent() && parent && parent->hasName() && tableStyle->parent() != "";
 		if (hasParent)
-		{
-			fillColor->setCurrentText(tableStyle->fillColor(), tableStyle->isInhFillColor());
-			fillColor->setParentText(parent->fillColor());
-			fillShade->setValue(qRound(tableStyle->fillShade()), tableStyle->isInhFillShade());
-			fillShade->setParentValue(qRound(parent->fillShade()));
-		}
+			buttonFillColor->setColor(tableStyle->fillColor(), qRound(tableStyle->fillShade()), parent->fillColor(), qRound(parent->fillShade()), tableStyle->isInhFillColor() && tableStyle->isInhFillShade());
 		else
-		{
-			fillColor->setCurrentText(tableStyle->fillColor());
-			fillShade->setValue(qRound(tableStyle->fillShade()));
-		}
+			buttonFillColor->setColor(tableStyle->fillColor(), qRound(tableStyle->fillShade()));
 		return;
 	}
 
 	// A conditional area edits its own anonymous CellStyle -- no parent UI.
+	// Resolve through the document cell styles so inherited fill/shade come
+	// from the based-on parent (matching what the table renders), and report
+	// the real inherited state rather than hardcoding "not inherited".
 	CellStyle cs = tableStyle->conditionalStyle(m_currentArea);
-	fillColor->setCurrentText(cs.fillColor(), false);
-	fillColor->setParentText(QString());
-	fillShade->setValue(qRound(cs.fillShade()), false);
-	fillShade->setParentValue(0);
+	cs.setContext(&m_Doc->cellStyles());
+
+	const CellStyle *parent = dynamic_cast<const CellStyle*>(cs.parentStyle());
+	bool hasParent =  cs.hasParent() && parent != nullptr && parent->hasName() && cs.parent() != "";
+	if (hasParent)
+		buttonFillColor->setColor(cs.fillColor(), qRound(cs.fillShade()), parent->fillColor(), qRound(parent->fillShade()), cs.isInhFillColor() && cs.isInhFillShade());
+	else
+		buttonFillColor->setColor(cs.fillColor(), qRound(cs.fillShade()));
+
 }
 
 void SMTableStyleWidget::showBordersForCurrentArea(TableStyle *tableStyle)
@@ -534,6 +542,7 @@ void SMTableStyleWidget::showBordersForCurrentArea(TableStyle *tableStyle)
 	else
 	{
 		CellStyle cs = tableStyle->conditionalStyle(m_currentArea);
+		cs.setContext(&m_Doc->cellStyles());
 		setBorders(cs.leftBorder(), cs.rightBorder(), cs.topBorder(), cs.bottomBorder());
 	}
 }
@@ -542,12 +551,28 @@ void SMTableStyleWidget::showParagraphStyleForCurrentArea(TableStyle *tableStyle
 {
 	QString psName;
 	if (m_currentArea == TableArea::WholeTable)
+	{
 		psName = tableStyle->paragraphStyleName();
+	}
 	else
-		psName = tableStyle->conditionalStyle(m_currentArea).paragraphStyleName();
+	{
+		// Resolve through the document cell styles so an inherited paragraph
+		// style name comes from the based-on parent, matching the render.
+		CellStyle cs = tableStyle->conditionalStyle(m_currentArea);
+		cs.setContext(&m_Doc->cellStyles());
+		psName = cs.paragraphStyleName();
+	}
 	bool b = paragraphStyleComboBox->blockSignals(true);
 	paragraphStyleComboBox->setStyle(psName);
 	paragraphStyleComboBox->blockSignals(b);
 }
 
-
+void SMTableStyleWidget::showBasedOnForCurrentArea(TableStyle *tableStyle)
+{
+	bool isCellArea = (m_currentArea != TableArea::WholeTable);
+	basedOnComboBox->setEnabled(isCellArea);
+	QString parentName = isCellArea ? tableStyle->conditionalStyle(m_currentArea).parent() : QString();
+	bool b = basedOnComboBox->blockSignals(true);
+	basedOnComboBox->setStyle(parentName);
+	basedOnComboBox->blockSignals(b);
+}

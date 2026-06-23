@@ -1383,6 +1383,11 @@ void AppModeHelper::updateTableMenuActions(const ScribusDoc* doc)
 		(*a_scrActions)["tableAdjustFrameToTable"]->setEnabled(false);
 		(*a_scrActions)["tableAdjustTableToFrame"]->setEnabled(false);
 		(*a_scrActions)["tableAdjustRowHeights"]->setEnabled(false);
+		(*a_scrActions)["tableSelectCell"]->setEnabled(false);
+		(*a_scrActions)["tableSelectAllCells"]->setEnabled(false);
+		(*a_scrActions)["tableSelectRow"]->setEnabled(false);
+		(*a_scrActions)["tableSelectColumn"]->setEnabled(false);
+		(*a_scrActions)["tableSelectTable"]->setEnabled(false);
 		return;
 	}
 
@@ -1402,23 +1407,18 @@ void AppModeHelper::updateTableMenuActions(const ScribusDoc* doc)
 	(*a_scrActions)["tableSplitCells"]->setEnabled(true);
 	(*a_scrActions)["tableSetRowHeights"]->setEnabled(tableEdit);
 	(*a_scrActions)["tableSetColumnWidths"]->setEnabled(tableEdit);
-	if (tableEdit)
-	{
-		(*a_scrActions)["tableInsertRows"]->setEnabled(selectedCells < 1);
-		(*a_scrActions)["tableInsertColumns"]->setEnabled(selectedCells < 1);
-		(*a_scrActions)["tableDistributeRowsEvenly"]->setEnabled(selectedRows > 1);
-		(*a_scrActions)["tableDistributeColumnsEvenly"]->setEnabled(selectedColumns > 1);
-	}
-	else
-	{
-		(*a_scrActions)["tableInsertRows"]->setEnabled(true);
-		(*a_scrActions)["tableInsertColumns"]->setEnabled(true);
-		(*a_scrActions)["tableDistributeRowsEvenly"]->setEnabled(true);
-		(*a_scrActions)["tableDistributeColumnsEvenly"]->setEnabled(true);
-	}
+	(*a_scrActions)["tableInsertRows"]->setEnabled(tableEdit);
+	(*a_scrActions)["tableInsertColumns"]->setEnabled(tableEdit);
+	(*a_scrActions)["tableDistributeRowsEvenly"]->setEnabled(!tableEdit || selectedRows > 1);
+	(*a_scrActions)["tableDistributeColumnsEvenly"]->setEnabled(!tableEdit || selectedColumns > 1);
 	(*a_scrActions)["tableAdjustFrameToTable"]->setEnabled(true);
 	(*a_scrActions)["tableAdjustTableToFrame"]->setEnabled(true);
 	(*a_scrActions)["tableAdjustRowHeights"]->setEnabled(true);
+	(*a_scrActions)["tableSelectCell"]->setEnabled(true);
+	(*a_scrActions)["tableSelectAllCells"]->setEnabled(true);
+	(*a_scrActions)["tableSelectRow"]->setEnabled(true);
+	(*a_scrActions)["tableSelectColumn"]->setEnabled(true);
+	(*a_scrActions)["tableSelectTable"]->setEnabled(true);
 }
 
 void AppModeHelper::changeLayer(ScribusDoc *doc, bool clipScrapHaveData)
