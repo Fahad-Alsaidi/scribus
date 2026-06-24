@@ -1001,6 +1001,10 @@ struct LineControl {
 
 	void addBox(LineBox *lineBox, const GlyphCluster& run)
 	{
+		if (run.hasFlag(ScLayout_DropCap))
+			qWarning() << "DCAP-MAKEBOX firstChar=" << run.firstChar()
+					 << "scaleV=" << run.scaleV()
+					 << "yoffset=" << run.yoffset;
 		Box* result;
 		if (run.object().getPageItem(doc))
 		{
@@ -1234,6 +1238,10 @@ void PageItem_TextFrame::layout()
 	int    DropLinesCount = 0;
 
 	textLayout.clear();
+	qWarning() << "DCAP-LAYOUT frame=" << (const void*)this
+			   << "name=" << itemName()
+			   << "linesAfterClear=" << textLayout.lines()
+			   << "next=" << (const void*)nextInChain();
 	incompleteLines = 0;
 	incompletePositions.clear();
 
@@ -1664,6 +1672,11 @@ void PageItem_TextFrame::layout()
 					double bareAscent = 0.0;   // DCAP-RENDER: old divisor (no lift)
 					double maxLift    = 0.0;   // DCAP-RENDER: largest upward GPOS lift
 					for (const GlyphLayout& g : glyphCluster.glyphs())
+						if (g.yoffset != 0.0)
+							qWarning() << "DCAP-DIRTY incoming g.yoffset=" << g.yoffset
+									   << "scaleVwillUse" << (realAsce)
+									   << "char" << glyphCluster.getText();
+					for (const GlyphLayout& g : glyphCluster.glyphs())
 					{
 						double gAsc = font.glyphBBox(g.glyph, charStyle.fontSize() / 10.0).ascent;
 						double lift = qMax(0.0, -g.yoffset);   // count upward lift only
@@ -1672,7 +1685,12 @@ void PageItem_TextFrame::layout()
 						capAscent  = qMax(capAscent, gAsc + lift);
 					}
 					if (capAscent <= 0.0)
+					{
+						qWarning() << "DCAP-FALLBACK capAscent<=0 -> realCharHeight=" << realCharHeight
+								   << "(realCharAscent=" << realCharAscent
+								   << " bareAscent=" << bareAscent << ")";
 						capAscent = realCharHeight;
+					}
 
 					glyphCluster.setScaleV(realAsce / capAscent);
 
@@ -2743,9 +2761,13 @@ void PageItem_TextFrame::layout()
 				{
 					if (current.addLine && current.breakIndex >= 0)
 					{
-						qDebug() << "DCAP-COMMIT" << (style.direction()==ParagraphStyle::RTL?"RTL":"LTR")
+						qWarning() << "DCAP-COMMIT" << (style.direction()==ParagraphStyle::RTL?"RTL":"LTR")
 							 << "DropCapDrop=" << DropCapDrop
 							 << "lineData.y=" << current.lineData.y
+							 << "lineData.x=" << current.lineData.x
+							 << "lineData.width=" << current.lineData.width
+							 << "boxRight=" << (current.lineData.x + current.lineData.width)
+							 << "colRight=" << current.colRight
 							 << "g0.firstChar=" << current.glyphs[0].firstChar()
 							 << "g0.hasDropCap=" << current.glyphs[0].hasFlag(ScLayout_DropCap);
 						if (current.glyphs[0].hasFlag(ScLayout_DropCap))
@@ -3609,6 +3631,11 @@ void PageItem_TextFrame::DrawObj_Item(ScPainter *p, const QRectF& cullingArea)
 		painter.setGlyphBoxRendering(m_Doc->whiteSpaceModeEnabled);
 		if (!m_Doc->whiteSpaceModeEnabled)
 			textLayout.renderBackground(&painter);
+		qWarning() << "DCAP-DRAW item=" << (const void*)this
+				 << "name=" << itemName()
+				 << "lines=" << textLayout.lines()
+				 << "onMaster=" << OnMasterPage
+				 << "appMode=" << m_Doc->appMode;
 		textLayout.render(&painter, this);
 
 		// Draw spell check underlines (only in edit mode)

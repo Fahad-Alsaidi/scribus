@@ -613,7 +613,9 @@ void GlyphBox::render(TextLayoutPainter *p) const
 		return;
 	}
 	if (m_glyphRun.hasFlag(ScLayout_DropCap))
-		qDebug() << "DCAP-RENDER y=" << y()
+		qWarning() << "DCAP-RENDER box=" << (const void*)this
+				 << "firstChar=" << m_glyphRun.firstChar()
+				 << "y=" << y()
 				 << "yoffset=" << m_glyphRun.yoffset
 				 << "scaleV=" << m_glyphRun.scaleV();
 	p->translate(x() + m_glyphRun.xoffset, y() + m_glyphRun.yoffset);
