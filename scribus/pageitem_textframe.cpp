@@ -1653,8 +1653,52 @@ void PageItem_TextFrame::layout()
 					if (current.startOfCol && (m_firstLineOffset == FLOPFontAscent))
 						asce = font.ascent(hlcsize10);
 					glyphCluster.setScaleH(glyphCluster.scaleH() / glyphCluster.scaleV());
-					glyphCluster.setScaleV(realAsce / realCharHeight);
+					// Divide by the glyph's *effective* ascent: bare bbox ascent plus any
+					// upward GPOS lift. A negative gl.yoffset lifts the glyph up, and the
+					// renderer applies that lift inside the scaleV matrix, so the rendered
+					// top is (ascent - yoffset) * scaleV. The bare bbox ascent ignores the
+					// lift, so the cap overshoots and clips the frame top for calligraphic
+					// fonts like Noto Nastaliq Urdu. Direction-agnostic; no RTL branch.
+					double capAscent  = 0.0;
+					double bareAscent = 0.0;   // DCAP-RENDER: old divisor (no lift)
+					double maxLift    = 0.0;   // DCAP-RENDER: largest upward GPOS lift
+					for (const GlyphLayout& g : glyphCluster.glyphs())
+					{
+						double gAsc = font.glyphBBox(g.glyph, charStyle.fontSize() / 10.0).ascent;
+						double lift = qMax(0.0, -g.yoffset);   // count upward lift only
+						bareAscent = qMax(bareAscent, gAsc);
+						maxLift    = qMax(maxLift, lift);
+						capAscent  = qMax(capAscent, gAsc + lift);
+					}
+					if (capAscent <= 0.0)
+						capAscent = realCharHeight;
+
+					glyphCluster.setScaleV(realAsce / capAscent);
+
+					// ---- DCAP-RENDER (remove before commit) ----
+					{
+						double newScaleV = glyphCluster.scaleV();
+						double oldScaleV = (bareAscent > 0.0) ? realAsce / bareAscent : newScaleV;
+						qWarning() << "DCAP-RENDER" << font.scName() << "char" << glyphCluster.getText()
+								 << "bareAscent" << bareAscent << "maxLift" << maxLift
+								 << "capAscent(lifted)" << capAscent
+								 << "realAsce" << realAsce
+								 << "oldRenderedTop" << (bareAscent + maxLift) * oldScaleV
+								 << "newRenderedTop" << (bareAscent + maxLift) * newScaleV;
+					}
+					// ---- end DCAP-RENDER ----
 					glyphCluster.setScaleH(glyphCluster.scaleH() * glyphCluster.scaleV());
+					// ---- DCAP-PROBE (remove before commit) ----
+					for (const GlyphLayout& g : glyphCluster.glyphs())
+					{
+						qWarning() << "DCAP-PROBE" << font.scName() << "char" << glyphCluster.getText()
+								 << "| g.yoffset" << g.yoffset
+								 << "| g.scaleV" << g.scaleV << "g.scaleH" << g.scaleH
+								 << "| cluster.scaleV" << glyphCluster.scaleV()
+								 << "cluster.scaleH" << glyphCluster.scaleH()
+								 << "| realAsce" << realAsce << "capAscent" << capAscent;
+					}
+					// ---- end DCAP-PROBE ----
 					glyphCluster.xoffset -= 0.5; //drop caps are always to far from column left edge
 				}
 				// This is to mimic pre-boxes branches in case first character of paragraph is a space
@@ -2108,10 +2152,39 @@ void PageItem_TextFrame::layout()
 			// remember y pos
 			if (DropCmode)
 			{
+				// Seat the cap's lowest ink on the drop-cap baseline. This descent is the
+				// *rendered* descent (chsd/fontSize == the scaleV applied at ~1656), so a
+				// positive value is ink below the baseline. A glyph whose whole bbox sits
+				// ABOVE the baseline has descent < 0 ("floats") — common for Arabic isolated
+				// forms. The 0.0 seed floored the running max at 0, so floaters got no seat
+				// and the cap hovered, throwing its top out of the frame. Seed from the first
+				// glyph so a negative max survives and the cap is pulled down onto the baseline.
 				double yoffset = 0.0;
 				const QList<GlyphLayout>& glyphs = current.glyphs[currentIndex].glyphs();
+				bool seatInit = false;
 				for (const GlyphLayout& gl : glyphs)
-					yoffset = qMax(yoffset, font.glyphBBox(gl.glyph, chsd / 10.0).descent);
+				{
+					double gd = font.glyphBBox(gl.glyph, chsd / 10.0).descent;
+					yoffset = seatInit ? qMax(yoffset, gd) : gd;
+					seatInit = true;
+				}
+				// yoffset>0 here means the glyph has real descent (ink below baseline);
+				// subtracting it would raise the cap baseline and clip the frame top.
+				// Only seat downward (yoffset<0 = ink floating above baseline). The cap
+				// then keeps the full DropCapDrop and its top lands on the frame top.
+				// Direction-agnostic; no RTL branch.
+				yoffset = qMin(yoffset, 0.0);
+				// ---- DCAP-SEAT-FINAL (remove before commit) ----
+				qWarning() << "DCAP-SEAT-FINAL"
+						 << "lineBaseline(after)=" << (current.lineData.y - DropCapDrop)
+						 << "DropCapDrop=" << DropCapDrop
+						 << "cap.yoffset(before +=)=" << current.glyphs[0].yoffset
+						 << "cap.yoffset(after +=)=" << (current.glyphs[0].yoffset + DropCapDrop)
+						 << "realAsce=" << current.glyphs[0].ascent()
+						 << "predicted cap top=" << (current.lineData.y - DropCapDrop)
+												   + (current.glyphs[0].yoffset + DropCapDrop)
+												   - current.glyphs[0].ascent();
+				// ---- end DCAP-SEAT-FINAL ----
 				current.glyphs[currentIndex].yoffset -= yoffset;
 			}
 			// remember x pos
