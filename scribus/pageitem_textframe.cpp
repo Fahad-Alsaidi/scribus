@@ -371,6 +371,7 @@ struct LineControl {
 	int      column { 0 };
 	bool     startOfCol { true };
 	bool     hasDropCap;
+	double   dropCapWidth { 0.0 };
 	bool     afterOverflow { false };
 	bool     addLine { false };
 	bool     recalculateY { false };
@@ -1852,8 +1853,17 @@ void PageItem_TextFrame::layout()
 				// side loses width so it doesn't run under the cap.
 				if (rtlDropFollow)
 				{
-					current.rightIndent += (maxDX - current.colLeft);
+					current.rightIndent += current.dropCapWidth;
 					current.mustLineEnd = current.colRight - current.rightIndent;
+					qWarning() << "DCAP-RTL-FOLLOW"
+						 << "DropLinesCount=" << DropLinesCount
+						 << "colLeft=" << current.colLeft
+						 << "colRight=" << current.colRight
+						 << "maxDX=" << maxDX
+						 << "rightIndent=" << current.rightIndent
+						 << "mustLineEnd=" << current.mustLineEnd
+						 << "followTextRightEdge≈"
+						 << (current.colRight - current.rightIndent);
 				}
 					current.addLeftIndent = false;
 				}
@@ -2477,6 +2487,21 @@ void PageItem_TextFrame::layout()
 					maxDY = current.yPos;
 					current.hasDropCap = true;
 					maxDX = current.xPos;
+					// Follow-line reserve must be the cap's own band, not maxDX
+					// (maxDX = colLeft + leftIndent + capWidth, so it over-reserves
+					// by leftIndent). width() here already includes parEffectOffset.
+					current.dropCapWidth = current.glyphs[currentIndex].width();
+					qWarning() << "DCAP-RTL-CAPLINE"
+						 << (style.direction()==ParagraphStyle::RTL?"RTL":"LTR")
+						 << "colLeft=" << current.colLeft
+						 << "colRight=" << current.colRight
+						 << "capGlyphWidth=" << current.glyphs[currentIndex].width()
+						 << "capXoffset=" << current.glyphs[currentIndex].xoffset
+						 << "parEffectOffset=" << style.parEffectOffset()
+						 << "maxDX=" << maxDX
+						 << "band(maxDX-colLeft)=" << (maxDX - current.colLeft)
+						 << "capLineTextRightEdge≈"
+						 << (current.colRight - (maxDX - current.colLeft));
 					double spacing = calculateLineSpacing (style, this);
 					current.yPos -= spacing * (DropLines - 1);
 					if (style.lineSpacingMode() == ParagraphStyle::BaselineGridLineSpacing)
