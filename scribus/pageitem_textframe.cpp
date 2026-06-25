@@ -1236,12 +1236,7 @@ void PageItem_TextFrame::layout()
 	double DropCapDrop = 0;
 	int    DropLines = 0;
 	int    DropLinesCount = 0;
-
 	textLayout.clear();
-	qWarning() << "DCAP-LAYOUT frame=" << (const void*)this
-			   << "name=" << itemName()
-			   << "linesAfterClear=" << textLayout.lines()
-			   << "next=" << (const void*)nextInChain();
 	incompleteLines = 0;
 	incompletePositions.clear();
 
@@ -1668,7 +1663,9 @@ void PageItem_TextFrame::layout()
 					// top is (ascent - yoffset) * scaleV. The bare bbox ascent ignores the
 					// lift, so the cap overshoots and clips the frame top for calligraphic
 					// fonts like Noto Nastaliq Urdu. Direction-agnostic; no RTL branch.
+					// --- REPLACE THIS BLOCK ---
 					double capAscent  = 0.0;
+					double capDescent = 0.0;   // box-fit: ink below baseline at base size
 					double bareAscent = 0.0;   // DCAP-RENDER: old divisor (no lift)
 					double maxLift    = 0.0;   // DCAP-RENDER: largest upward GPOS lift
 					for (const GlyphLayout& g : glyphCluster.glyphs())
@@ -1678,46 +1675,30 @@ void PageItem_TextFrame::layout()
 									   << "char" << glyphCluster.getText();
 					for (const GlyphLayout& g : glyphCluster.glyphs())
 					{
-						double gAsc = font.glyphBBox(g.glyph, charStyle.fontSize() / 10.0).ascent;
+						GlyphMetrics gm = font.glyphBBox(g.glyph, charStyle.fontSize() / 10.0);
+						double gAsc = gm.ascent;
 						double lift = qMax(0.0, -g.yoffset);   // count upward lift only
 						bareAscent = qMax(bareAscent, gAsc);
 						maxLift    = qMax(maxLift, lift);
 						capAscent  = qMax(capAscent, gAsc + lift);
+						capDescent = qMax(capDescent, gm.descent);
 					}
 					if (capAscent <= 0.0)
-					{
-						qWarning() << "DCAP-FALLBACK capAscent<=0 -> realCharHeight=" << realCharHeight
-								   << "(realCharAscent=" << realCharAscent
-								   << " bareAscent=" << bareAscent << ")";
 						capAscent = realCharHeight;
-					}
-
-					glyphCluster.setScaleV(realAsce / capAscent);
-
-					// ---- DCAP-RENDER (remove before commit) ----
+					glyphCluster.setScaleV(realAsce / (capAscent + capDescent));
+					// Cap ink below its baseline is scaled by the same scaleV as the
+					// ascent. For deep scripts (Arabic/Nastaliq) this is large and must
+					// be reserved below the last drop line. Use scaleV, NOT the chsd
+					// seat descent, which under-reports the rendered tail.
 					{
-						double newScaleV = glyphCluster.scaleV();
-						double oldScaleV = (bareAscent > 0.0) ? realAsce / bareAscent : newScaleV;
-						qWarning() << "DCAP-RENDER" << font.scName() << "char" << glyphCluster.getText()
-								 << "bareAscent" << bareAscent << "maxLift" << maxLift
-								 << "capAscent(lifted)" << capAscent
-								 << "realAsce" << realAsce
-								 << "oldRenderedTop" << (bareAscent + maxLift) * oldScaleV
-								 << "newRenderedTop" << (bareAscent + maxLift) * newScaleV;
+						double bareDescent = 0.0;
+						for (const GlyphLayout& g : glyphCluster.glyphs())
+							bareDescent = qMax(bareDescent,
+											   font.glyphBBox(g.glyph, charStyle.fontSize() / 10.0).descent);
 					}
-					// ---- end DCAP-RENDER ----
+
 					glyphCluster.setScaleH(glyphCluster.scaleH() * glyphCluster.scaleV());
-					// ---- DCAP-PROBE (remove before commit) ----
-					for (const GlyphLayout& g : glyphCluster.glyphs())
-					{
-						qWarning() << "DCAP-PROBE" << font.scName() << "char" << glyphCluster.getText()
-								 << "| g.yoffset" << g.yoffset
-								 << "| g.scaleV" << g.scaleV << "g.scaleH" << g.scaleH
-								 << "| cluster.scaleV" << glyphCluster.scaleV()
-								 << "cluster.scaleH" << glyphCluster.scaleH()
-								 << "| realAsce" << realAsce << "capAscent" << capAscent;
-					}
-					// ---- end DCAP-PROBE ----
+
 					glyphCluster.xoffset -= 0.5; //drop caps are always to far from column left edge
 				}
 				// This is to mimic pre-boxes branches in case first character of paragraph is a space
@@ -2180,39 +2161,10 @@ void PageItem_TextFrame::layout()
 			// remember y pos
 			if (DropCmode)
 			{
-				// Seat the cap's lowest ink on the drop-cap baseline. This descent is the
-				// *rendered* descent (chsd/fontSize == the scaleV applied at ~1656), so a
-				// positive value is ink below the baseline. A glyph whose whole bbox sits
-				// ABOVE the baseline has descent < 0 ("floats") — common for Arabic isolated
-				// forms. The 0.0 seed floored the running max at 0, so floaters got no seat
-				// and the cap hovered, throwing its top out of the frame. Seed from the first
-				// glyph so a negative max survives and the cap is pulled down onto the baseline.
 				double yoffset = 0.0;
 				const QList<GlyphLayout>& glyphs = current.glyphs[currentIndex].glyphs();
-				bool seatInit = false;
 				for (const GlyphLayout& gl : glyphs)
-				{
-					double gd = font.glyphBBox(gl.glyph, chsd / 10.0).descent;
-					yoffset = seatInit ? qMax(yoffset, gd) : gd;
-					seatInit = true;
-				}
-				// yoffset>0 here means the glyph has real descent (ink below baseline);
-				// subtracting it would raise the cap baseline and clip the frame top.
-				// Only seat downward (yoffset<0 = ink floating above baseline). The cap
-				// then keeps the full DropCapDrop and its top lands on the frame top.
-				// Direction-agnostic; no RTL branch.
-				yoffset = qMin(yoffset, 0.0);
-				// ---- DCAP-SEAT-FINAL (remove before commit) ----
-				qWarning() << "DCAP-SEAT-FINAL"
-						 << "lineBaseline(after)=" << (current.lineData.y - DropCapDrop)
-						 << "DropCapDrop=" << DropCapDrop
-						 << "cap.yoffset(before +=)=" << current.glyphs[0].yoffset
-						 << "cap.yoffset(after +=)=" << (current.glyphs[0].yoffset + DropCapDrop)
-						 << "realAsce=" << current.glyphs[0].ascent()
-						 << "predicted cap top=" << (current.lineData.y - DropCapDrop)
-												   + (current.glyphs[0].yoffset + DropCapDrop)
-												   - current.glyphs[0].ascent();
-				// ---- end DCAP-SEAT-FINAL ----
+					yoffset = qMax(yoffset, font.glyphBBox(gl.glyph, chsd / 10.0).descent);
 				current.glyphs[currentIndex].yoffset -= yoffset;
 			}
 			// remember x pos
@@ -2775,6 +2727,32 @@ void PageItem_TextFrame::layout()
 							// put line back to top
 							current.lineData.y -= DropCapDrop;
 							current.glyphs[0].yoffset += DropCapDrop;
+								// --- CORRECTED FIX FOR NASTALIQ DROP CAP OVERFLOW ---
+								// Calculate the actual scaled ascent of the drop cap including GPOS lifts
+								double capAscent = 0.0;
+								const ScFace& font = current.glyphs[0].style().font();
+								double fontSize = current.glyphs[0].style().fontSize() / 10.0;
+
+								for (const GlyphLayout& g : current.glyphs[0].glyphs())
+								{
+									GlyphMetrics gm = font.glyphBBox(g.glyph, fontSize);
+									double lift = qMax(0.0, -g.yoffset); // Negative yoffset lifts the glyph UP
+									capAscent = qMax(capAscent, gm.ascent + lift);
+								}
+
+								double scaledAscent = capAscent * current.glyphs[0].scaleV();
+								double firstLineAscent = current.lineData.ascent;
+
+								// Calculate the exact yoffset needed to align the drop cap's top
+								// with the first line of text's top.
+								double desiredYoffset = scaledAscent - firstLineAscent;
+
+								// Only apply the difference between the desired yoffset and the current one.
+								// This prevents double-counting the DropCapDrop that was just added above.
+								double correction = desiredYoffset - current.glyphs[0].yoffset;
+
+								if (correction > 0.0)
+									current.glyphs[0].yoffset += correction;
 						}
 						current.fillInTabLeaders();
 						//if right margin is set we temporally save line, not append it
@@ -3042,6 +3020,33 @@ void PageItem_TextFrame::layout()
 				// put line back to top
 				current.lineData.y -= DropCapDrop;
 				current.glyphs[0].yoffset += DropCapDrop;
+					// --- CORRECTED FIX FOR NASTALIQ DROP CAP OVERFLOW ---
+					// Calculate the actual scaled ascent of the drop cap including GPOS lifts
+					double capAscent = 0.0;
+					const ScFace& font = current.glyphs[0].style().font();
+					double fontSize = current.glyphs[0].style().fontSize() / 10.0;
+
+					for (const GlyphLayout& g : current.glyphs[0].glyphs())
+					{
+						GlyphMetrics gm = font.glyphBBox(g.glyph, fontSize);
+						double lift = qMax(0.0, -g.yoffset); // Negative yoffset lifts the glyph UP
+						capAscent = qMax(capAscent, gm.ascent + lift);
+					}
+
+					double scaledAscent = capAscent * current.glyphs[0].scaleV();
+					double firstLineAscent = current.lineData.ascent;
+
+					// Calculate the exact yoffset needed to align the drop cap's top
+					// with the first line of text's top.
+					double desiredYoffset = scaledAscent - firstLineAscent;
+
+					// Only apply the difference between the desired yoffset and the current one.
+					// This prevents double-counting the DropCapDrop that was just added above.
+					double correction = desiredYoffset - current.glyphs[0].yoffset;
+
+					if (correction > 0.0)
+						current.glyphs[0].yoffset += correction;
+
 			}
 			current.fillInTabLeaders();
 			current.startOfCol = false;
@@ -3631,11 +3636,6 @@ void PageItem_TextFrame::DrawObj_Item(ScPainter *p, const QRectF& cullingArea)
 		painter.setGlyphBoxRendering(m_Doc->whiteSpaceModeEnabled);
 		if (!m_Doc->whiteSpaceModeEnabled)
 			textLayout.renderBackground(&painter);
-		qWarning() << "DCAP-DRAW item=" << (const void*)this
-				 << "name=" << itemName()
-				 << "lines=" << textLayout.lines()
-				 << "onMaster=" << OnMasterPage
-				 << "appMode=" << m_Doc->appMode;
 		textLayout.render(&painter, this);
 
 		// Draw spell check underlines (only in edit mode)
