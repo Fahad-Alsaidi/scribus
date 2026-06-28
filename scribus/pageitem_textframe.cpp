@@ -1001,10 +1001,6 @@ struct LineControl {
 
 	void addBox(LineBox *lineBox, const GlyphCluster& run)
 	{
-		if (run.hasFlag(ScLayout_DropCap))
-			qWarning() << "DCAP-MAKEBOX firstChar=" << run.firstChar()
-					 << "scaleV=" << run.scaleV()
-					 << "yoffset=" << run.yoffset;
 		Box* result;
 		if (run.object().getPageItem(doc))
 		{
@@ -1669,11 +1665,6 @@ void PageItem_TextFrame::layout()
 					double bareAscent = 0.0;   // DCAP-RENDER: old divisor (no lift)
 					double maxLift    = 0.0;   // DCAP-RENDER: largest upward GPOS lift
 					for (const GlyphLayout& g : glyphCluster.glyphs())
-						if (g.yoffset != 0.0)
-							qWarning() << "DCAP-DIRTY incoming g.yoffset=" << g.yoffset
-									   << "scaleVwillUse" << (realAsce)
-									   << "char" << glyphCluster.getText();
-					for (const GlyphLayout& g : glyphCluster.glyphs())
 					{
 						GlyphMetrics gm = font.glyphBBox(g.glyph, charStyle.fontSize() / 10.0);
 						double gAsc = gm.ascent;
@@ -1854,15 +1845,6 @@ void PageItem_TextFrame::layout()
 				{
 					current.rightIndent += current.dropCapWidth;
 					current.mustLineEnd = current.colRight - current.rightIndent;
-					qWarning() << "DCAP-RTL-FOLLOW"
-						 << "DropLinesCount=" << DropLinesCount
-						 << "colLeft=" << current.colLeft
-						 << "colRight=" << current.colRight
-						 << "maxDX=" << maxDX
-						 << "rightIndent=" << current.rightIndent
-						 << "mustLineEnd=" << current.mustLineEnd
-						 << "followTextRightEdge≈"
-						 << (current.colRight - current.rightIndent);
 				}
 					current.addLeftIndent = false;
 				}
@@ -2461,17 +2443,30 @@ void PageItem_TextFrame::layout()
 					// (maxDX = colLeft + leftIndent + capWidth, so it over-reserves
 					// by leftIndent). width() here already includes parEffectOffset.
 					current.dropCapWidth = current.glyphs[currentIndex].width();
-					qWarning() << "DCAP-RTL-CAPLINE"
-						 << (style.direction()==ParagraphStyle::RTL?"RTL":"LTR")
-						 << "colLeft=" << current.colLeft
-						 << "colRight=" << current.colRight
-						 << "capGlyphWidth=" << current.glyphs[currentIndex].width()
-						 << "capXoffset=" << current.glyphs[currentIndex].xoffset
-						 << "parEffectOffset=" << style.parEffectOffset()
-						 << "maxDX=" << maxDX
-						 << "band(maxDX-colLeft)=" << (maxDX - current.colLeft)
-						 << "capLineTextRightEdge≈"
-						 << (current.colRight - (maxDX - current.colLeft));
+					if (style.direction() == ParagraphStyle::RTL)
+					{
+						GlyphCluster& cap = current.glyphs[currentIndex];
+						double sizePt = charStyle.fontSize() / 10.0;
+						double pen = 0.0, inkRight = 0.0, inkLeft = 0.0;
+						for (const GlyphLayout& g : cap.glyphs())
+						{
+							double xMax = font.glyphBBox(g.glyph, sizePt).width;          // ink right edge (base pt)
+							QRectF ob = font.glyphOutline(g.glyph, sizePt).boundingRect();
+							double s  = (ob.right() != 0.0) ? xMax / ob.right() : 0.0;     // outline units -> base pt
+							double xMin = ob.left() * s;                                  // ink left edge (base pt)
+							inkRight = qMax(inkRight, pen + xMax);
+							inkLeft  = qMin(inkLeft,  pen + xMin);   // <0 only if ink bleeds left of origin
+							pen += g.xadvance;
+						}
+						double overhang  = qMax(0.0, (inkRight - pen)) * cap.scaleH();    // ink past advance, right
+						double leftBleed = qMax(0.0, -inkLeft)        * cap.scaleH();     // ink left of origin (Naskh bowl)
+						if (overhang > 0.0 || leftBleed > 0.0)
+						{
+							cap.extraWidth       += overhang + leftBleed; // box = full ink WIDTH (xMax - xMin)
+							cap.xoffset          += leftBleed;            // shift right so ink right edge stays at colRight
+							current.dropCapWidth += overhang + leftBleed; // follow-line reserve matches
+						}
+					}
 					double spacing = calculateLineSpacing (style, this);
 					current.yPos -= spacing * (DropLines - 1);
 					if (style.lineSpacingMode() == ParagraphStyle::BaselineGridLineSpacing)
@@ -2713,46 +2708,12 @@ void PageItem_TextFrame::layout()
 				{
 					if (current.addLine && current.breakIndex >= 0)
 					{
-						qWarning() << "DCAP-COMMIT" << (style.direction()==ParagraphStyle::RTL?"RTL":"LTR")
-							 << "DropCapDrop=" << DropCapDrop
-							 << "lineData.y=" << current.lineData.y
-							 << "lineData.x=" << current.lineData.x
-							 << "lineData.width=" << current.lineData.width
-							 << "boxRight=" << (current.lineData.x + current.lineData.width)
-							 << "colRight=" << current.colRight
-							 << "g0.firstChar=" << current.glyphs[0].firstChar()
-							 << "g0.hasDropCap=" << current.glyphs[0].hasFlag(ScLayout_DropCap);
 						if (current.glyphs[0].hasFlag(ScLayout_DropCap))
 						{
 							// put line back to top
 							current.lineData.y -= DropCapDrop;
 							current.glyphs[0].yoffset += DropCapDrop;
-								// --- CORRECTED FIX FOR NASTALIQ DROP CAP OVERFLOW ---
-								// Calculate the actual scaled ascent of the drop cap including GPOS lifts
-								double capAscent = 0.0;
-								const ScFace& font = current.glyphs[0].style().font();
-								double fontSize = current.glyphs[0].style().fontSize() / 10.0;
 
-								for (const GlyphLayout& g : current.glyphs[0].glyphs())
-								{
-									GlyphMetrics gm = font.glyphBBox(g.glyph, fontSize);
-									double lift = qMax(0.0, -g.yoffset); // Negative yoffset lifts the glyph UP
-									capAscent = qMax(capAscent, gm.ascent + lift);
-								}
-
-								double scaledAscent = capAscent * current.glyphs[0].scaleV();
-								double firstLineAscent = current.lineData.ascent;
-
-								// Calculate the exact yoffset needed to align the drop cap's top
-								// with the first line of text's top.
-								double desiredYoffset = scaledAscent - firstLineAscent;
-
-								// Only apply the difference between the desired yoffset and the current one.
-								// This prevents double-counting the DropCapDrop that was just added above.
-								double correction = desiredYoffset - current.glyphs[0].yoffset;
-
-								if (correction > 0.0)
-									current.glyphs[0].yoffset += correction;
 						}
 						current.fillInTabLeaders();
 						//if right margin is set we temporally save line, not append it
@@ -3010,43 +2971,11 @@ void PageItem_TextFrame::layout()
 
 				current.indentLine(style, OFs);
 			}
-			qDebug() << "DCAP-COMMIT" << (style.direction()==ParagraphStyle::RTL?"RTL":"LTR")
-					 << "DropCapDrop=" << DropCapDrop
-					 << "lineData.y=" << current.lineData.y
-					 << "g0.firstChar=" << current.glyphs[0].firstChar()
-					 << "g0.hasDropCap=" << current.glyphs[0].hasFlag(ScLayout_DropCap);
 			if (current.glyphs[0].hasFlag(ScLayout_DropCap))
 			{
 				// put line back to top
 				current.lineData.y -= DropCapDrop;
 				current.glyphs[0].yoffset += DropCapDrop;
-					// --- CORRECTED FIX FOR NASTALIQ DROP CAP OVERFLOW ---
-					// Calculate the actual scaled ascent of the drop cap including GPOS lifts
-					double capAscent = 0.0;
-					const ScFace& font = current.glyphs[0].style().font();
-					double fontSize = current.glyphs[0].style().fontSize() / 10.0;
-
-					for (const GlyphLayout& g : current.glyphs[0].glyphs())
-					{
-						GlyphMetrics gm = font.glyphBBox(g.glyph, fontSize);
-						double lift = qMax(0.0, -g.yoffset); // Negative yoffset lifts the glyph UP
-						capAscent = qMax(capAscent, gm.ascent + lift);
-					}
-
-					double scaledAscent = capAscent * current.glyphs[0].scaleV();
-					double firstLineAscent = current.lineData.ascent;
-
-					// Calculate the exact yoffset needed to align the drop cap's top
-					// with the first line of text's top.
-					double desiredYoffset = scaledAscent - firstLineAscent;
-
-					// Only apply the difference between the desired yoffset and the current one.
-					// This prevents double-counting the DropCapDrop that was just added above.
-					double correction = desiredYoffset - current.glyphs[0].yoffset;
-
-					if (correction > 0.0)
-						current.glyphs[0].yoffset += correction;
-
 			}
 			current.fillInTabLeaders();
 			current.startOfCol = false;
