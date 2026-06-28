@@ -1821,11 +1821,11 @@ void PageItem_TextFrame::layout()
 					}
 					// RTL drop-cap follow-lines: Constrain the available line width
 					// from the right margin to prevent text overlapping the right-aligned drop cap.
-				if (rtlDropFollow)
-				{
-					current.rightIndent += current.dropCapWidth;
-					current.mustLineEnd = current.colRight - current.rightIndent;
-				}
+					if (rtlDropFollow)
+					{
+						current.rightIndent = current.dropCapWidth;
+						current.mustLineEnd = current.colRight - current.rightIndent;
+					}
 					current.addLeftIndent = false;
 				}
 			}
@@ -2693,7 +2693,6 @@ void PageItem_TextFrame::layout()
 							// put line back to top
 							current.lineData.y -= DropCapDrop;
 							current.glyphs[0].yoffset += DropCapDrop;
-
 						}
 						current.fillInTabLeaders();
 						//if right margin is set we temporally save line, not append it
