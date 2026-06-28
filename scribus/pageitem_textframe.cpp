@@ -1660,36 +1660,17 @@ void PageItem_TextFrame::layout()
 					// top is (ascent - yoffset) * scaleV. The bare bbox ascent ignores the
 					// lift, so the cap overshoots and clips the frame top for calligraphic
 					// fonts like Noto Nastaliq Urdu. Direction-agnostic; no RTL branch.
-					double capAscent  = 0.0;
-					double capDescent = 0.0;   // box-fit: ink below baseline at base size
-					double bareAscent = 0.0;   //  old divisor (no lift)
-					double maxLift    = 0.0;   // largest upward GPOS lift
+					double capAscent = 0.0, capDescent = 0.0;
 					for (const GlyphLayout& g : glyphCluster.glyphs())
 					{
 						GlyphMetrics gm = font.glyphBBox(g.glyph, charStyle.fontSize() / 10.0);
-						double gAsc = gm.ascent;
-						double lift = qMax(0.0, -g.yoffset);   // count upward lift only
-						bareAscent = qMax(bareAscent, gAsc);
-						maxLift    = qMax(maxLift, lift);
-						capAscent  = qMax(capAscent, gAsc + lift);
+						capAscent  = qMax(capAscent,  gm.ascent + qMax(0.0, -g.yoffset)); // +upward GPOS lift
 						capDescent = qMax(capDescent, gm.descent);
 					}
 					if (capAscent <= 0.0)
 						capAscent = realCharHeight;
 					glyphCluster.setScaleV(realAsce / (capAscent + capDescent));
-					// Cap ink below its baseline is scaled by the same scaleV as the
-					// ascent. For deep scripts (Arabic/Nastaliq) this is large and must
-					// be reserved below the last drop line. Use scaleV, NOT the chsd
-					// seat descent, which under-reports the rendered tail.
-					{
-						double bareDescent = 0.0;
-						for (const GlyphLayout& g : glyphCluster.glyphs())
-							bareDescent = qMax(bareDescent,
-											   font.glyphBBox(g.glyph, charStyle.fontSize() / 10.0).descent);
-					}
-
 					glyphCluster.setScaleH(glyphCluster.scaleH() * glyphCluster.scaleV());
-
 					glyphCluster.xoffset -= 0.5; //drop caps are always to far from column left edge
 				}
 				// This is to mimic pre-boxes branches in case first character of paragraph is a space
@@ -1798,7 +1779,7 @@ void PageItem_TextFrame::layout()
 				}
 				//set left indentation
 				current.leftIndent = 0.0;
-				// RTL: a line beside an active drop cap must reserve the cap band on the
+				// RTL: a line beside an active drop cap must reserve the cap width on the
 				// visual right; this block is normally skipped once maxDX != 0, so force
 				// it to run for those follow-lines.
 				bool rtlDropFollow = (style.direction() == ParagraphStyle::RTL)
@@ -1838,9 +1819,8 @@ void PageItem_TextFrame::layout()
 							}
 						}
 					}
-				// RTL drop-cap follow-lines: reserve the cap band on the visual right.
-				// Text starts flush at colLeft (set in the restartX change); the right
-				// side loses width so it doesn't run under the cap.
+					// RTL drop-cap follow-lines: Constrain the available line width
+					// from the right margin to prevent text overlapping the right-aligned drop cap.
 				if (rtlDropFollow)
 				{
 					current.rightIndent += current.dropCapWidth;
@@ -2758,7 +2738,7 @@ void PageItem_TextFrame::layout()
 					current.startOfCol = false;
 					if (style.direction() == ParagraphStyle::RTL)
 						// RTL: drop cap sits on the visual right, so follow-lines start flush
-							// at the column left; the reserve is taken from the right (Change 1).
+							// at the column left; the reserve is taken from the right.
 								current.restartX = current.xPos = current.colLeft;
 					else
 						current.restartX = current.xPos = qMax(maxDX, current.colLeft);
