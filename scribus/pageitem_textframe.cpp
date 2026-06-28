@@ -1232,6 +1232,7 @@ void PageItem_TextFrame::layout()
 	double DropCapDrop = 0;
 	int    DropLines = 0;
 	int    DropLinesCount = 0;
+
 	textLayout.clear();
 	incompleteLines = 0;
 	incompletePositions.clear();
@@ -1659,11 +1660,10 @@ void PageItem_TextFrame::layout()
 					// top is (ascent - yoffset) * scaleV. The bare bbox ascent ignores the
 					// lift, so the cap overshoots and clips the frame top for calligraphic
 					// fonts like Noto Nastaliq Urdu. Direction-agnostic; no RTL branch.
-					// --- REPLACE THIS BLOCK ---
 					double capAscent  = 0.0;
 					double capDescent = 0.0;   // box-fit: ink below baseline at base size
-					double bareAscent = 0.0;   // DCAP-RENDER: old divisor (no lift)
-					double maxLift    = 0.0;   // DCAP-RENDER: largest upward GPOS lift
+					double bareAscent = 0.0;   //  old divisor (no lift)
+					double maxLift    = 0.0;   // largest upward GPOS lift
 					for (const GlyphLayout& g : glyphCluster.glyphs())
 					{
 						GlyphMetrics gm = font.glyphBBox(g.glyph, charStyle.fontSize() / 10.0);
