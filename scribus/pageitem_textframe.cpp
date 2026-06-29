@@ -2737,8 +2737,8 @@ void PageItem_TextFrame::layout()
 					current.startOfCol = false;
 					if (style.direction() == ParagraphStyle::RTL)
 						// RTL: drop cap sits on the visual right, so follow-lines start flush
-							// at the column left; the reserve is taken from the right.
-								current.restartX = current.xPos = current.colLeft;
+						// at the column left; the reserve is taken from the right.
+						current.restartX = current.xPos = current.colLeft;
 					else
 						current.restartX = current.xPos = qMax(maxDX, current.colLeft);
 					lastLineY = current.rowDesc;
