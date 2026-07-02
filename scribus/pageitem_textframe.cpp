@@ -372,6 +372,7 @@ struct LineControl {
 	bool     startOfCol { true };
 	bool     hasDropCap;
 	double   dropCapWidth { 0.0 };
+	bool     dropCapGapOnRight { false };
 	bool     afterOverflow { false };
 	bool     addLine { false };
 	bool     recalculateY { false };
@@ -1783,7 +1784,8 @@ void PageItem_TextFrame::layout()
 				// visual right; this block is normally skipped once maxDX != 0, so force
 				// it to run for those follow-lines.
 				bool rtlDropFollow = (style.direction() == ParagraphStyle::RTL)
-									 && current.hasDropCap && (maxDX > current.colLeft);
+									 && current.hasDropCap && !DropCmode
+									 && (maxDX > current.colLeft);
 				if (current.addLeftIndent && ((maxDX == 0) || DropCmode || BulNumMode || rtlDropFollow))
 				{
 					current.leftIndent = style.leftMargin() + autoLeftIndent;
@@ -1821,7 +1823,7 @@ void PageItem_TextFrame::layout()
 					}
 					// RTL drop-cap follow-lines: Constrain the available line width
 					// from the right margin to prevent text overlapping the right-aligned drop cap.
-					if (rtlDropFollow)
+					if (rtlDropFollow && current.dropCapGapOnRight)
 					{
 						current.rightIndent = current.dropCapWidth;
 						current.mustLineEnd = current.colRight - current.rightIndent;
@@ -2423,6 +2425,11 @@ void PageItem_TextFrame::layout()
 					// (maxDX = colLeft + leftIndent + capWidth, so it over-reserves
 					// by leftIndent). width() here already includes parEffectOffset.
 					current.dropCapWidth = current.glyphs[currentIndex].width();
+					// Gap side depends on the cap letter itself, not the frame setting:
+					// an English letter in an RTL frame still reads left-to-right.
+					QChar::Direction capCharDir = itemText.text(a).direction();
+					current.dropCapGapOnRight = (style.direction() == ParagraphStyle::RTL)
+												&& (capCharDir != QChar::DirL);
 					if (style.direction() == ParagraphStyle::RTL)
 					{
 						GlyphCluster& cap = current.glyphs[currentIndex];
@@ -2735,9 +2742,11 @@ void PageItem_TextFrame::layout()
 					inOverflow = false;
 					outs = false;
 					current.startOfCol = false;
-					if (style.direction() == ParagraphStyle::RTL)
-						// RTL: drop cap sits on the visual right, so follow-lines start flush
-						// at the column left; the reserve is taken from the right.
+					if (current.hasDropCap && !current.dropCapGapOnRight && style.direction() == ParagraphStyle::RTL)
+						// English-style cap in an RTL frame: gap stays on the left, but only
+						// while the cap is still active — once it ends, fall through below.
+						current.restartX = current.xPos = current.colLeft + current.dropCapWidth;
+					else if (style.direction() == ParagraphStyle::RTL)
 						current.restartX = current.xPos = current.colLeft;
 					else
 						current.restartX = current.xPos = qMax(maxDX, current.colLeft);
