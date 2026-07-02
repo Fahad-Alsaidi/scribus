@@ -64,8 +64,13 @@ struct AutoHideTabPrivate;
  * of the docking system. The dock manager uses an internal stylesheet to
  * style its components like splitters, tabs and buttons. If you want to
  * disable this stylesheet because your application uses its own,
- * just call the function for settings the stylesheet with an empty
- * string.
+ * you can either set the DisableStylesheet config flag before creating
+ * the dock manager:
+ * \code
+ * CDockManager::setConfigFlag(CDockManager::DisableStylesheet, true);
+ * \endcode
+ * Or call the function for settings the stylesheet with an empty string
+ * after creating the dock manager:
  * \code
  * DockManager->setStyleSheet("");
  * \endcode
@@ -154,6 +159,14 @@ protected:
 	virtual void showEvent(QShowEvent *event) override;
 
 	/**
+	 * Wayland: re-applies the inherited style sheet to all floating widgets
+	 * when this dock manager or one of its ancestors changes its style sheet.
+	 * Floating widgets have no parent widget on Wayland, so they do not
+	 * receive style sheet changes that propagate down the widget hierarchy.
+	 */
+	virtual void changeEvent(QEvent *event) override;
+
+	/**
 	 * Access for the internal dock focus controller.
 	 * This function only returns a valid object, if the FocusHighlighting
 	 * flag is set.
@@ -172,6 +185,13 @@ public:
 	{
 		MenuSortedByInsertion,
 		MenuAlphabeticallySorted
+	};
+
+	enum class ColorSchemeMode
+	{
+		Light,
+		Dark,
+		FollowPalette
 	};
 
 	/**
@@ -215,6 +235,11 @@ public:
 		MiddleMouseButtonClosesTab = 0x2000000, //! If the flag is set, the user can use the mouse middle button to close the tab under the mouse
 		DisableTabTextEliding =      0x4000000, //! Set this flag to disable eliding of tab texts in dock area tabs
 		ShowTabTextOnlyForActiveTab =0x8000000, //! Set this flag to show label texts in dock area tabs only for active tabs
+		DoubleClickUndocksWidget = 0x10000000, //!< If the flag is set, a double click on a tab undocks the widget
+		TabsAtBottom = 0x20000000, //!< If the flag is set, tabs will be shown at the bottom instead of in the title bar.
+		UseNativeWindows = 0x40000000, //!< If the flag is set, windows for the dock and area widgets will be native.
+		DisableStylesheet = 0x80000000, //!< If the flag is set, the dock manager will not apply the default stylesheet
+
 
         DefaultDockAreaButtons = DockAreaHasCloseButton
 							   | DockAreaHasUndockButton
@@ -223,7 +248,8 @@ public:
 		DefaultBaseConfig = DefaultDockAreaButtons
 		                  | ActiveTabHasCloseButton
 		                  | XmlCompressionEnabled
-		                  | FloatingContainerHasWidgetTitle, ///< default base configuration settings
+		                  | FloatingContainerHasWidgetTitle
+		                  | DoubleClickUndocksWidget, ///< default base configuration settings
 
         DefaultOpaqueConfig = DefaultBaseConfig
 		                    | OpaqueSplitterResize
@@ -254,13 +280,25 @@ public:
 		AutoHideCloseButtonCollapsesDock = 0x40, ///< Close button of an auto hide container collapses the dock instead of hiding it completely
 		AutoHideHasCloseButton = 0x80, //< If the flag is set an auto hide title bar has a close button
 		AutoHideHasMinimizeButton = 0x100, ///< if this flag is set, the auto hide title bar has a minimize button to collapse the dock widget
+        AutoHideOpenOnDragHover = 0x200,  ///< if this flag is set, dragging hover the tab bar will open the dock
+        AutoHideCloseOnOutsideMouseClick = 0x400, ///< if this flag is set, the auto hide dock container will collapse if the user clicks outside of the container, if not set, the auto hide container can be closed only via click on sidebar tab
 
 		DefaultAutoHideConfig = AutoHideFeatureEnabled
 			                  | DockAreaHasAutoHideButton
 			                  | AutoHideHasMinimizeButton
+			                  | AutoHideCloseOnOutsideMouseClick
 
 	};
     Q_DECLARE_FLAGS(AutoHideFlags, eAutoHideFlag)
+
+	/**
+	 * Global configuration parameters that you can set via setConfigParam()
+	 */
+	enum eConfigParam
+	{
+    	AutoHideOpenOnDragHoverDelay_ms, ///< Delay in ms before the dock opens on drag hover if AutoHideOpenOnDragHover flag is set
+    	ConfigParamCount // just a delimiter to count number of config params
+	};
 
 
 	/**
@@ -276,6 +314,39 @@ public:
 	 * Virtual Destructor
 	 */
 	virtual ~CDockManager() override;
+
+    /**
+     * Creates a new dock widget with the specified title and optional parent
+     * widget.
+     *
+     * The new dock widget will be managed by the dock manager, and its lifetime
+     * will be tied to the dock manager. If a parent widget is provided, the dock
+     * widget will be created as a child of the parent widget. If no parent widget
+     * is provided, the dock widget will be created as a top-level widget.
+     *
+     * @param title The title of the dock widget.
+     * @param parent The parent widget, if any. Defaults to nullptr.
+     * @return Returns a pointer to the created CDockWidget.
+     */
+    CDockWidget *createDockWidget(const QString &title, QWidget* parent = nullptr);
+
+	/**
+	 * Returns the dock manager specific factory for creating components of
+	 * fock widgets
+	 */
+    QSharedPointer<ads::CDockComponentsFactory> componentsFactory() const;
+
+    /**
+     * Sets a custom factory for creating components of dock widgets.
+     * The pointer is stored internally into a shared pointer so you should not
+     * delete the given factory object as long as it is used by the dock manager.
+     */
+    void setComponentsFactory(ads::CDockComponentsFactory* Factory);
+
+    /**
+     * Sets a custom factory for creating components of dock widgets.
+     */
+    void setComponentsFactory(QSharedPointer<ads::CDockComponentsFactory>);
 
 	/**
 	 * This function returns the global configuration flags
@@ -324,11 +395,32 @@ public:
 	static bool testAutoHideConfigFlag(eAutoHideFlag Flag);
 
 	/**
+	 * Sets the value for the given config parameter
+	 */
+	static void setConfigParam(eConfigParam Param, QVariant Value);
+
+	/**
+	 * Returns the value for the given config parameter or the default value
+	 * if the parameter is not set.
+	 */
+	static QVariant configParam(eConfigParam Param, QVariant Default);
+
+	/**
 	 * Returns the global icon provider.
 	 * The icon provider enables the use of custom icons in case using
 	 * styleheets for icons is not an option.
 	 */
 	static CIconProvider& iconProvider();
+
+	/**
+	 * Returns if current application palette is dark
+	 */
+	static bool isApplicationPaletteDark();
+
+	/**
+	 * Returns if currently applied stylesheet is supposed to be dark
+	 */
+	bool isDesiredStylesheetDark();
 
 	/**
 	 * Adds dockwidget into the given area.
@@ -551,6 +643,17 @@ public:
 	void setViewMenuInsertionOrder(eViewMenuInsertionOrder Order);
 
 	/**
+	 * Define the behavior of stylesheet color scheme selection.
+	 * The stylesheet can be fixed to either light or dark scheme,
+	 * or it can follow the current application palette (default).
+	 * Note: The fixed settings implement legacy behavior (before
+	 * dark scheme was implemented) including problems like missing
+	 * palette change propagation. They are implemented solely
+	 * for compatibility reasons and manual stylesheet switching.
+	 */
+	void setColorSchemeMode(ColorSchemeMode Mode);
+
+	/**
 	 * This function returns true between the restoringState() and
 	 * stateRestored() signals.
 	 */
@@ -710,6 +813,12 @@ public Q_SLOTS:
      * hides the CDockManager but not the floating widgets;
      */
     void hideManagerAndFloatingWidgets();
+
+    /**
+     * Calls raise() for the widget that hosts this dock manager.
+     * This will bring the widget in front of any other application that is running
+     */
+    void raise();
 
 Q_SIGNALS:
 	/**
