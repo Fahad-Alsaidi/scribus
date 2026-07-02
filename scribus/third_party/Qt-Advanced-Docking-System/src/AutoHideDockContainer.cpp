@@ -125,6 +125,21 @@ struct AutoHideDockContainerPrivate
 	AutoHideDockContainerPrivate(CAutoHideDockContainer *_public);
 
 	/**
+	 * Convenience function to ease access to dock manager components factory
+	 */
+	QSharedPointer<ads::CDockComponentsFactory> componentsFactory() const
+	{
+		if (!DockWidget || !DockWidget->dockManager())
+		{
+			return CDockComponentsFactory::factory();
+		}
+		else
+		{
+			return DockWidget->dockManager()->componentsFactory();
+		}
+    }
+
+	/**
 	 * Convenience function to get a dock widget area
 	 */
 	DockWidgetArea getDockWidgetArea(SideBarLocation area)
@@ -199,7 +214,7 @@ CAutoHideDockContainer::CAutoHideDockContainer(CDockWidget* DockWidget, SideBarL
 {
 	hide(); // auto hide dock container is initially always hidden
 	d->SideTabBarArea = area;
-	d->SideTab = componentsFactory()->createDockWidgetSideTab(nullptr);
+	d->SideTab = d->componentsFactory()->createDockWidgetSideTab(nullptr);
 	connect(d->SideTab, &CAutoHideTab::pressed, this, &CAutoHideDockContainer::toggleCollapseState);
 	d->DockArea = new CDockAreaWidget(DockWidget->dockManager(), parent);
 	d->DockArea->setObjectName("autoHideDockArea");
@@ -400,7 +415,31 @@ void CAutoHideDockContainer::moveContentsToParent()
 	// to the user and he does not have to search where the widget was inserted.
 	d->DockWidget->setDockArea(nullptr);
 	auto DockContainer = dockContainer();
-	DockContainer->addDockWidget(d->getDockWidgetArea(d->SideTabBarArea), d->DockWidget);
+	auto targetArea = d->getDockWidgetArea(d->SideTabBarArea);
+
+	// If the widget has a preferred auto-hide location, try to find an existing
+	// opened dock area that contains a widget with the same preferred location
+	// and merge as a tab instead of creating a new split.
+	auto preferred = d->DockWidget->preferredAutoHideSideBarLocation();
+	if (preferred != SideBarNone)
+	{
+		for (auto area : DockContainer->openedDockAreas())
+		{
+			if (!area || area->isAutoHide()) continue;
+			// Check if any widget in this area has the same preferred location
+			for (auto dw : area->dockWidgets())
+			{
+				if (dw && dw->preferredAutoHideSideBarLocation() == preferred)
+				{
+					DockContainer->addDockWidget(CenterDockWidgetArea,
+						d->DockWidget, area);
+					return;
+				}
+			}
+		}
+	}
+
+	DockContainer->addDockWidget(targetArea, d->DockWidget);
 }
 
 
@@ -410,8 +449,8 @@ void CAutoHideDockContainer::cleanupAndDelete()
 	const auto dockWidget = d->DockWidget;
 	if (dockWidget)
 	{
-
 		auto SideTab = d->SideTab;
+		dockWidget->setSideTabWidget(nullptr);
         SideTab->removeFromSideBar();
         SideTab->setParent(nullptr);
         SideTab->hide();
@@ -467,6 +506,17 @@ void CAutoHideDockContainer::collapseView(bool Enable)
 	{
 		updateSize();
 		d->updateResizeHandleSizeLimitMax();
+		// If the parent dock container has native child windows (e.g. because
+		// an OpenGL or VTK content widget called winId()), this panel is an
+		// alien (non-native) widget and will always be obscured by those native
+		// sibling windows regardless of Qt's paint order. Native OS windows are
+		// rendered above the parent's painted (alien) content by the windowing
+		// system. To allow raise() to use OS-level Z-order and appear on top,
+		// this panel must first be promoted to a native window itself.
+		if (parentWidget() && parentWidget()->internalWinId() && !internalWinId())
+		{
+			winId();
+		}
 		raise();
 		show();
 		d->DockWidget->dockManager()->setDockWidgetFocused(d->DockWidget);
@@ -587,8 +637,12 @@ bool CAutoHideDockContainer::eventFilter(QObject* watched, QEvent* event)
 			return Super::eventFilter(watched, event);
 		}
 
-		// user clicked into container - collapse the auto hide widget
-		collapseView(true);
+		// user clicked outside of autohide container - collapse the auto hide widget
+		if (CDockManager::testAutoHideConfigFlag(
+		    CDockManager::AutoHideCloseOnOutsideMouseClick))
+		{
+			collapseView(true);
+		}
 	}
     else if (event->type() == internal::FloatingWidgetDragStartEvent)
     {
@@ -657,6 +711,14 @@ bool CAutoHideDockContainer::event(QEvent* event)
 	return Super::event(event);
 }
 
+//============================================================================
+void CAutoHideDockContainer::dragLeaveEvent(QDragLeaveEvent*)
+{
+    if (CDockManager::testAutoHideConfigFlag(CDockManager::AutoHideOpenOnDragHover))
+    {
+        collapseView(true);
+    }
+}
 
 //============================================================================
 Qt::Orientation CAutoHideDockContainer::orientation() const
@@ -709,4 +771,3 @@ int CAutoHideDockContainer::tabIndex() const
 }
 
 }
-

@@ -67,8 +67,9 @@ int mainApp(int argc, char **argv)
 {
 	emergencyActivated = false;
 
+// Fallback if the Linux OS doesn't support wayland
 #if !defined(Q_OS_MACOS)
-	qputenv("QT_QPA_PLATFORM", "xcb");
+	qputenv("QT_QPA_PLATFORM", "wayland;xcb");
 #endif
 
 	QImageReader::setAllocationLimit(1024);
@@ -78,24 +79,7 @@ int mainApp(int argc, char **argv)
 	app.parseCommandLine();
 
 	FcInit();
-	
-	if (QApplication::platformName() == "wayland")
-	{
-		QString errHdr = QObject::tr("Fatal Error");
-		QString errMsg = QObject::tr("Scribus does not support the Wayland platform. Use XWayland to run Scribus on Wayland. Scribus will close now.");
-		if (app.useGUI)
-		{
-			QMessageBox::critical(nullptr, errHdr, errMsg);
-		}
-		else
-		{
-			std::cout << errHdr.toStdString() << std::endl;
-			std::cout << "-------------" << std::endl;
-			std::cout << errMsg.toStdString() << std::endl;
-		}
-		return EXIT_FAILURE;
-	}
-	
+
 	int appRetVal = app.init();
 	if (appRetVal == EXIT_FAILURE)
 		return(EXIT_FAILURE);

@@ -96,11 +96,20 @@ struct DockWidgetPrivate
 	WidgetFactory* Factory = nullptr;
 	QPointer<CAutoHideTab> SideTabWidget;
 	CDockWidget::eToolBarStyleSource ToolBarStyleSource = CDockWidget::ToolBarStyleFromDockManager;
-	
+	SideBarLocation PreferredAutoHideSideBarLocation = SideBarNone;
+
 	/**
 	 * Private data constructor
 	 */
 	DockWidgetPrivate(CDockWidget* _public);
+
+	/**
+	 * Convenience function to ease components factory access
+	 */
+	QSharedPointer<ads::CDockComponentsFactory> componentsFactory() const
+	{
+        return DockManager ? DockManager->componentsFactory() : CDockComponentsFactory::factory();
+    }
 
 	/**
 	 * Show dock widget
@@ -358,9 +367,17 @@ void DockWidgetPrivate::setToolBarStyleFromDockManager()
 
 //============================================================================
 CDockWidget::CDockWidget(const QString &title, QWidget *parent) :
-	QFrame(parent),
-	d(new DockWidgetPrivate(this))
+      CDockWidget(nullptr, title, parent)
 {
+}
+
+
+//============================================================================
+CDockWidget::CDockWidget(CDockManager *manager, const QString &title, QWidget* parent)
+	: QFrame(parent),
+	  d(new DockWidgetPrivate(this))
+{
+	d->DockManager = manager;
 	d->Layout = new QBoxLayout(QBoxLayout::TopToBottom);
 	d->Layout->setContentsMargins(0, 0, 0, 0);
 	d->Layout->setSpacing(0);
@@ -368,7 +385,7 @@ CDockWidget::CDockWidget(const QString &title, QWidget *parent) :
 	setWindowTitle(title);
 	setObjectName(title);
 
-	d->TabWidget = componentsFactory()->createDockWidgetTab(this);
+	d->TabWidget = d->componentsFactory()->createDockWidgetTab(this);
 
 	d->ToggleViewAction = new QAction(title, this);
 	d->ToggleViewAction->setCheckable(true);
@@ -380,7 +397,13 @@ CDockWidget::CDockWidget(const QString &title, QWidget *parent) :
 	{
 		setFocusPolicy(Qt::ClickFocus);
 	}
+
+	if (CDockManager::testConfigFlag(CDockManager::UseNativeWindows))
+	{
+		winId();
+	}
 }
+
 
 //============================================================================
 CDockWidget::~CDockWidget()
@@ -633,6 +656,20 @@ SideBarLocation CDockWidget::autoHideLocation() const
 
 
 //============================================================================
+void CDockWidget::setPreferredAutoHideSideBarLocation(SideBarLocation Location)
+{
+	d->PreferredAutoHideSideBarLocation = Location;
+}
+
+
+//============================================================================
+SideBarLocation CDockWidget::preferredAutoHideSideBarLocation() const
+{
+	return d->PreferredAutoHideSideBarLocation;
+}
+
+
+//============================================================================
 bool CDockWidget::isFloating() const
 {
 	if (!isInFloatingContainer())
@@ -824,9 +861,9 @@ void CDockWidget::saveState(QXmlStreamWriter& s) const
 void CDockWidget::flagAsUnassigned()
 {
 	d->Closed = true;
-	setParent(d->DockManager);
 	setVisible(false);
 	setDockArea(nullptr);
+	setParent(d->DockManager);
 	tabWidget()->setParent(this);
 }
 
@@ -861,7 +898,7 @@ bool CDockWidget::event(QEvent *e)
 			}
 			if (d->DockArea)
 			{
-				d->DockArea->markTitleBarMenuOutdated();//update tabs menu
+				d->DockArea->updateWindowTitle();
 			}
 
 			auto FloatingWidget = floatingDockContainer();
@@ -1315,7 +1352,15 @@ void CDockWidget::setAutoHide(bool Enable, SideBarLocation Location, int TabInde
 	}
 	else
 	{
-		auto area = (SideBarNone == Location) ? DockArea->calculateSideTabBarArea() : Location;
+		auto area = Location;
+		if (SideBarNone == area && d->PreferredAutoHideSideBarLocation != SideBarNone)
+		{
+			area = d->PreferredAutoHideSideBarLocation;
+		}
+		else if (SideBarNone == area)
+		{
+			area = DockArea->calculateSideTabBarArea();
+		}
 		dockContainer()->createAndSetupAutoHideContainer(area, this, TabIndex);
 	}
 }

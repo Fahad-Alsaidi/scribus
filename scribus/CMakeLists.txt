@@ -294,7 +294,7 @@ target_link_libraries(${EXE_NAME} PRIVATE
 )
 
 #if(WANT_QTADS)
-  target_link_libraries(${EXE_NAME} PUBLIC qt6advanceddocking)
+target_link_libraries(${EXE_NAME} PUBLIC qtadvanceddocking-qt${QT_VERSION_MAJOR})
 #endif()
 
 if(WITH_TESTS)

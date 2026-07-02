@@ -1,19 +1,23 @@
 cmake_minimum_required(VERSION 3.16)
 project(QtAdvancedDockingSystem LANGUAGES CXX VERSION ${VERSION_SHORT})
+include(GNUInstallDirs)
+include(Versioning)
 if (${QT_VERSION_MAJOR})
   message(STATUS "Forced to use Qt version ${QT_VERSION_MAJOR}")
   find_package(QT NAMES Qt${QT_VERSION_MAJOR} COMPONENTS Core REQUIRED)
 else()
   find_package(QT NAMES Qt6 Qt5 COMPONENTS Core REQUIRED)
 endif()
-find_package(Qt${QT_VERSION_MAJOR} COMPONENTS Core Gui Widgets REQUIRED)
 
-if (UNIX AND NOT APPLE)
-    if(DEFINED Qt6Gui_VERSION AND (Qt6Gui_VERSION VERSION_GREATER_EQUAL 6.10))
-        find_package(Qt6 COMPONENTS GuiPrivate REQUIRED)
-    endif()
-    include_directories(${Qt${QT_VERSION_MAJOR}Gui_PRIVATE_INCLUDE_DIRS})
+set(ads_DEP_LIBS Core Gui Widgets)
+if (UNIX AND NOT APPLE AND QT_VERSION_MAJOR STREQUAL "6" AND QT_VERSION_MINOR GREATER 8)
+    set(ads_DEP_LIBS Core Gui GuiPrivate Widgets)
 endif()
+find_package(Qt${QT_VERSION_MAJOR} COMPONENTS ${ads_DEP_LIBS} REQUIRED)
+if (UNIX AND NOT APPLE AND ((QT_VERSION_MAJOR STREQUAL "6" AND QT_VERSION_MINOR GREATER 8) OR QT_VERSION_MAJOR STREQUAL "5"))
+     include_directories(${Qt${QT_VERSION_MAJOR}Gui_PRIVATE_INCLUDE_DIRS})
+endif()
+
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 if(BUILD_STATIC)
     set(CMAKE_STATIC_LIBRARY_SUFFIX "_static${CMAKE_STATIC_LIBRARY_SUFFIX}")
@@ -74,12 +78,15 @@ if (UNIX AND NOT APPLE)
     set(ads_HEADERS linux/FloatingWidgetTitleBar.h ${ads_HEADERS})
 endif()
 
-set(library_name "qt${QT_VERSION_MAJOR}advanceddocking")
+set(library_name "qtadvanceddocking-qt${QT_VERSION_MAJOR}")
 if(BUILD_STATIC)
     add_library(${library_name} STATIC ${ads_SRCS} ${ads_HEADERS})
     target_compile_definitions( ${library_name} PUBLIC ADS_STATIC)
 else()
     add_library( ${library_name} SHARED ${ads_SRCS} ${ads_HEADERS})
+    if(WIN32)
+        add_windows_version_resources(${library_name})
+    endif()
     target_compile_definitions( ${library_name} PRIVATE ADS_SHARED_EXPORT)
 endif()
 
@@ -88,11 +95,12 @@ add_library(ads::${library_name} ALIAS ${library_name})
 target_link_libraries(${library_name} PUBLIC Qt${QT_VERSION_MAJOR}::Core 
                                                Qt${QT_VERSION_MAJOR}::Gui 
                                                Qt${QT_VERSION_MAJOR}::Widgets)
-if (UNIX AND NOT APPLE)
-  if(Qt6GuiPrivate_FOUND)
-      target_link_libraries(${library_name} PUBLIC Qt6::GuiPrivate)
-  endif()
 
+if(UNIX AND NOT APPLE AND QT_VERSION_MAJOR STREQUAL "6")
+    target_link_libraries(${library_name} PRIVATE Qt6::GuiPrivate) #needed for <qpa/qplatformnativeinterface.h>
+endif()
+
+if (UNIX AND NOT APPLE)
   if (${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
       find_package(X11 REQUIRED)
       target_link_libraries(${library_name} PUBLIC X11::xcb)
@@ -105,6 +113,7 @@ set_target_properties(${library_name} PROPERTIES
     AUTORCC ON
     CXX_EXTENSIONS OFF
     VERSION ${VERSION_SHORT}
+    SOVERSION ${VERSION_SONAME}
     EXPORT_NAME ${library_name}
     DEBUG_POSTFIX "d"
     ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/${ads_PlatformDir}/lib"
@@ -134,7 +143,7 @@ install(FILES ${ads_HEADERS}
 install(FILES
     "${CMAKE_CURRENT_SOURCE_DIR}/../LICENSE"
     "${CMAKE_CURRENT_SOURCE_DIR}/../gnu-lgpl-v2.1.md"
-    DESTINATION license/ads
+    DESTINATION share/ads/license
     COMPONENT license
 )
 install(TARGETS ${library_name}
