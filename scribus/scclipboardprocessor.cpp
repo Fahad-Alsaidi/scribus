@@ -112,7 +112,7 @@ void ScClipboardProcessor::debugDumpClipboard()
 
 bool ScClipboardProcessor::process()
 {
-	// #define SCCLIP_DEBUG
+// #define SCCLIP_DEBUG
 #ifdef SCCLIP_DEBUG
 	debugDumpClipboard();
 #endif
@@ -723,12 +723,17 @@ QString ScClipboardProcessor::html_LibreOffice_ExtractText(xmlNode *node, QList<
 		{
 			QString t = QString::fromUtf8((const char *)cur->content);
 			text += t;
-			if (!text.isEmpty())
+			// Collapse runs of CR/LF/TAB to a single space rather than deleting
+			// leading/trailing ones. LibreOffice pretty-prints its clipboard HTML
+			// and can emit an inter-run space as a lone newline in its own text
+			// node; deleting that dropped the space and fused adjacent words.
+			static QRegularExpression wsRun(R"([\r\n\t]+)");
+			t.replace(wsRun, " ");
+			// Suppress whitespace at the very start of the paragraph (LibreOffice
+			// puts a newline right after <p>) so no leading space is introduced.
+			bool isLeadingWhitespace = t.trimmed().isEmpty() && segments.isEmpty();
+			if (!t.isEmpty() && !isLeadingWhitespace)
 			{
-				static QRegularExpression regex(R"(^[\r\n\t]+|[\r\n\t]+$)");
-				t.remove(regex);
-				t.replace("\r\n", " ");
-				t.replace("\n", " ");
 				TextSegment ts2(ts);
 				ts2.text = t;
 				segments.append(ts2);
