@@ -839,8 +839,8 @@ struct LineControl {
 		int startItem = 0;
 		if (glyphs[startItem].hasFlag(ScLayout_DropCap))
 		{
-			startItem++;
-			naturalWidth += glyphs[startItem].width();
+			naturalWidth += glyphs[startItem].width();  // add the drop cap's own width first
+			startItem++;                                // then skip it in the loop below
 		}
 		// distribute whitespace on spaces and glyphs
 		for (int i = startItem; i < glyphsCount; ++i)
