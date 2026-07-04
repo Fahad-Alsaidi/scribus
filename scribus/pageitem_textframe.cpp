@@ -1779,11 +1779,15 @@ void PageItem_TextFrame::layout()
 				}
 				//set left indentation
 				current.leftIndent = 0.0;
+				QChar capChar = itemText.text(a);
+				bool capIsArabicScript = (capChar.script() == QChar::Script_Arabic)
+									   || (capChar.script() == QChar::Script_Syriac)
+									   || (capChar.script() == QChar::Script_Nko);
 				// RTL: a line beside an active drop cap must reserve the cap width on the
 				// visual right; this block is normally skipped once maxDX != 0, so force
 				// it to run for those follow-lines.
 				bool rtlDropFollow = (style.direction() == ParagraphStyle::RTL)
-									 && current.hasDropCap && !DropCmode
+									 && current.hasDropCap && !DropCmode && capIsArabicScript
 									 && (maxDX > current.colLeft);
 				if (current.addLeftIndent && ((maxDX == 0) || DropCmode || BulNumMode || rtlDropFollow))
 				{
