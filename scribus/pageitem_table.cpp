@@ -1987,6 +1987,7 @@ void PageItem_Table::unsetDirectFormatting()
 	m_style.erase();
 	m_style.setParent(parentStyle);
 	m_style.update(m_style.context());
+	rebuildAreaStyles();
 	adjustTableToFrame();
 	adjustFrameToTable();
 	updateCells();

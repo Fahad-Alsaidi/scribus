@@ -727,8 +727,38 @@ void PropertiesPalette_Table::on_buttonClearTableStyle_clicked()
 	if (!m_item || !m_item->isTable())
 		return;
 	PageItem_Table* table = m_item->asTable();
+
+	// Table-level direct formatting (fill, shade, table borders).
 	table->unsetDirectFormatting();
+
+	// Normal-mode edits also write direct formatting to every cell
+	// (updateBorders -> setCellBorders), so those must be cleared too or
+	// the cell borders keep rendering.
+	if (m_doc->appMode != modeEditTable)
+	{
+		QScopedValueRollback<bool> dontResizeRb(m_doc->dontResize, true);
+		for (int row = 0; row < table->rows(); ++row)
+		{
+			int colSpan = 0;
+			for (int col = 0; col < table->columns(); col += colSpan)
+			{
+				TableCell currentCell = table->cellAt(row, col);
+				if (row == currentCell.row())
+					currentCell.unsetDirectFormatting();
+				colSpan = currentCell.columnSpan();
+			}
+		}
+		table->adjustTable();
+	}
+
 	table->update();
+
+	// Reflect the cleared values in the palette (mirrors handleSelectionChanged).
+	syncSideSelectorToCells();
+	on_sideSelector_selectionChanged();
+	updateFillControls();
+	updateStyleControls();
+	updatePaddingControls();
 }
 
 void PropertiesPalette_Table::on_buttonClearCellStyle_clicked()
@@ -766,6 +796,13 @@ void PropertiesPalette_Table::on_buttonClearCellStyle_clicked()
 
 	table->adjustTable();
 	table->update();
+
+	// Reflect the cleared values in the palette (mirrors handleSelectionChanged).
+	syncSideSelectorToCells();
+	on_sideSelector_selectionChanged();
+	updateFillControls();
+	updateStyleControls();
+	updatePaddingControls();
 }
 
 void PropertiesPalette_Table::on_cellPaddingWidget_valuesChanged(const MarginStruct& padding)
