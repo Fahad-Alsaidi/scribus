@@ -182,18 +182,22 @@ void CanvasMode_EditTable::keyPressEvent(QKeyEvent* event)
 			}
 			else
 			{
+				PageItem_TextFrame* cellFrame = m_table->activeCell().textFrame();
+				const int lenBefore = cellFrame->itemText.length();
 				bool repeat;
-				m_table->activeCell().textFrame()->handleModeEditKey(event, repeat);
-				textChanged = true;
+				cellFrame->handleModeEditKey(event, repeat);
+				textChanged = (cellFrame->itemText.length() != lenBefore);
 			}
 		}
 	}
 	// Everything else: pass to the active cell's text frame.
 	else if (!m_table->hasSelection())
 	{
+		PageItem_TextFrame* cellFrame = m_table->activeCell().textFrame();
+		const int lenBefore = cellFrame->itemText.length();
 		bool repeat;
-		m_table->activeCell().textFrame()->handleModeEditKey(event, repeat);
-		textChanged = true;
+		cellFrame->handleModeEditKey(event, repeat);
+		textChanged = (cellFrame->itemText.length() != lenBefore);
 	}
 
 	// Re-fit the active row to its content after a text-changing keystroke, so
@@ -206,8 +210,46 @@ void CanvasMode_EditTable::keyPressEvent(QKeyEvent* event)
 		TableCell active = m_table->activeCell();
 		if (m_table->rowNeedsGrowthForCell(active.row(), active.column()))
 		{
-			if (m_table->adjustRowHeight(active.row(), true))
-				m_table->adjustFrameToTable();
+			// If this keystroke is coalescing into an insert-text undo state on
+			// the active cell's frame, fold the row grow into that same state so
+			// one Ctrl+Z reverses the text and the growth together and typing
+			// keeps coalescing. Otherwise grow normally with its own entries.
+			PageItem_TextFrame* cellFrame = active.textFrame();
+			SimpleState* insertState = nullptr;
+			if (UndoManager::undoEnabled())
+			{
+				SimpleState* ss = dynamic_cast<SimpleState*>(undoManager->getLastUndo());
+				if (ss && ss->contains("INSERT_FRAMETEXT") && ss->undoObject() == cellFrame)
+					insertState = ss;
+			}
+
+			if (insertState)
+			{
+				const double oldRowHeight = m_table->rowHeight(active.row());
+				bool undoEnabled = undoManager->undoEnabled();
+				undoManager->setUndoEnabled(false);
+				const bool grew = m_table->adjustRowHeight(active.row(), true);
+				if (grew)
+					m_table->adjustFrameToTable();
+				undoManager->setUndoEnabled(undoEnabled);
+
+				if (grew)
+				{
+					if (!insertState->contains("CELL_ROW_GREW"))
+					{
+						insertState->set("CELL_ROW_GREW");
+						insertState->set("CELL_ROW", active.row());
+						insertState->set("CELL_ROW_OLD_HEIGHT", oldRowHeight);
+						insertState->set("CELL_ROW_STRATEGY", 0); // MoveFollowing
+					}
+					insertState->set("CELL_ROW_NEW_HEIGHT", m_table->rowHeight(active.row()));
+				}
+			}
+			else
+			{
+				if (m_table->adjustRowHeight(active.row(), true))
+					m_table->adjustFrameToTable();
+			}
 		}
 	}
 
@@ -388,6 +430,16 @@ void CanvasMode_EditTable::mousePressEvent(QMouseEvent* event)
 void CanvasMode_EditTable::mouseReleaseEvent(QMouseEvent* event)
 {
 	m_lastCursorPos = -1;
+
+	// Keep Cut/Copy in sync with the final selection. A cell-range selection
+	// has no text-level cut/copy path yet, so disable there.
+	if (m_table->hasSelection())
+		m_view->m_ScMW->setCopyCutEnabled(false);
+	else
+	{
+		PageItem_TextFrame* activeFrame = m_table->activeCell().textFrame();
+		m_view->m_ScMW->setCopyCutEnabled(activeFrame && activeFrame->HasSel);
+	}
 }
 
 void CanvasMode_EditTable::mouseDoubleClickEvent(QMouseEvent* event)
@@ -430,6 +482,12 @@ void CanvasMode_EditTable::mouseDoubleClickEvent(QMouseEvent* event)
 		m_lastCursorPos = textFrame->itemText.cursorPosition();
 		textFrame->itemText.selectWord(textFrame->itemText.cursorPosition());
 	}
+
+	// The selection lives in itemText; HasSel must mirror it or
+	// slotEditCut/slotEditCopy's `if (cItem->HasSel)` guard drops it.
+	// Also sync Cut/Copy, matching CanvasMode_Edit's double-click.
+	textFrame->HasSel = textFrame->itemText.hasSelection();
+	m_view->m_ScMW->setCopyCutEnabled(textFrame->HasSel);
 
 	updateCanvas(true);
 }
@@ -587,6 +645,11 @@ void CanvasMode_EditTable::handleMouseDrag(QMouseEvent* event)
 
 			activeFrame->itemText.select(selectionStart, selectionLength);
 			activeFrame->HasSel = (selectionLength > 0);
+			// Gate Edit > Cut/Copy on the cell's text selection. Their shortcuts
+			// won't fire otherwise, so Ctrl+X/Ctrl+C are no-ops after a mouse
+			// selection in a cell. The Shift+Arrow path already does this via
+			// PageItem_TextFrame::ExpandSel().
+			m_view->m_ScMW->setCopyCutEnabled(activeFrame->HasSel);
 		}
 		else
 		{

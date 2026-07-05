@@ -6037,6 +6037,8 @@ void PageItem_TextFrame::setTextFrameHeight()
 	textLayout.box()->moveTo(textLayout.box()->x(), 0);
 	double newHeight = textLayout.box()->naturalHeight();
 	newHeight += m_textDistanceMargins.bottom();
+	if (qFuzzyCompare(newHeight, m_height))   // no-op guard
+		return;
 
 	UndoTransaction undoTransaction;
 	if (UndoManager::undoEnabled())
@@ -6066,6 +6068,7 @@ void PageItem_TextFrame::setTextFrameHeight()
 
 double PageItem_TextFrame::naturalContentHeight()
 {
+	UndoBlocker undoBlocker;
 	// Temporarily expand the frame, iterating if needed, until layout
 	// reports a height strictly less than what we gave it -- meaning
 	// the layout had room to spare and the natural height is honest.

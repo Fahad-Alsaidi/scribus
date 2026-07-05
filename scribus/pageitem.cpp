@@ -7146,6 +7146,20 @@ void PageItem::restoreInsertFrameText(SimpleState *ss, bool isUndo)
 		itemText.insertChars(start, text);
 		itemText.setCursorPosition(start + text.length());
 	}
+
+	// A row grow was folded into this insert (table-cell typing): restore the
+	// row height and reflow the table frame alongside the text. Undo is globally
+	// suppressed during restore, so resizeRow/adjustFrameToTable won't re-log.
+	if (ss->contains("CELL_ROW_GREW") && Parent && Parent->isTable())
+	{
+		PageItem_Table* table = Parent->asTable();
+		int row = ss->getInt("CELL_ROW");
+		PageItem_Table::ResizeStrategy strategy =
+			ss->getInt("CELL_ROW_STRATEGY") == 0 ? PageItem_Table::MoveFollowing : PageItem_Table::ResizeFollowing;
+		double height = isUndo ? ss->getDouble("CELL_ROW_OLD_HEIGHT") : ss->getDouble("CELL_ROW_NEW_HEIGHT");
+		table->resizeRow(row, height, strategy);
+		table->adjustFrameToTable();
+	}
 }
 
 void PageItem::restoreInsertFrameParagraph(SimpleState *ss, bool isUndo)
