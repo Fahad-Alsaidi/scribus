@@ -188,6 +188,7 @@ void PrefsManager::initDefaults()
 	appPrefs.uiPrefs.useSmallWidgets = false;
 	appPrefs.uiPrefs.showLabels = true;
 	appPrefs.uiPrefs.showLabelsOfInactiveTabs = true;
+	appPrefs.uiPrefs.forceFloatingContainerTitleBar = false;
 	appPrefs.uiPrefs.useTabs = false;
 	appPrefs.uiPrefs.stickyTools = false;
 	appPrefs.uiPrefs.grayscaleIcons = false;
@@ -1374,6 +1375,7 @@ bool PrefsManager::writePref(const QString& filePath)
 	dcUI.setAttribute("UseSmallWidgets", static_cast<int>(appPrefs.uiPrefs.useSmallWidgets));
 	dcUI.setAttribute("ShowLabels", static_cast<int>(appPrefs.uiPrefs.showLabels));
 	dcUI.setAttribute("ShowLabelsOfInactiveTabs", static_cast<int>(appPrefs.uiPrefs.showLabelsOfInactiveTabs));
+	dcUI.setAttribute("ForceFloatingContainerTitleBar", static_cast<int>(appPrefs.uiPrefs.forceFloatingContainerTitleBar));
 	dcUI.setAttribute("UseDocumentTabs", static_cast<int>(appPrefs.uiPrefs.useTabs));
 	dcUI.setAttribute("StickyTools", static_cast<int>(appPrefs.uiPrefs.stickyTools));
 	dcUI.setAttribute("Theme", appPrefs.uiPrefs.style);
@@ -2079,6 +2081,7 @@ bool PrefsManager::readPref(const QString& filePath)
 			appPrefs.uiPrefs.useSmallWidgets = dc.attribute("UseSmallWidgets").toInt();
 			appPrefs.uiPrefs.showLabels = dc.attribute("ShowLabels").toInt();
 			appPrefs.uiPrefs.showLabelsOfInactiveTabs = dc.attribute("ShowLabelsOfInactiveTabs").toInt();
+			appPrefs.uiPrefs.forceFloatingContainerTitleBar = static_cast<bool>(dc.attribute("ForceFloatingContainerTitleBar", "0").toInt());
 			appPrefs.uiPrefs.useTabs = static_cast<bool>(dc.attribute("UseDocumentTabs", "0").toInt());
 			appPrefs.uiPrefs.stickyTools = static_cast<bool>(dc.attribute("StickyTools", "0").toInt());
 			appPrefs.uiPrefs.grayscaleIcons = static_cast<bool>(dc.attribute("UseGrayscaleIcons",nullptr).toInt());

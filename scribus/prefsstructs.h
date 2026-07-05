@@ -128,6 +128,7 @@ struct UIPrefs
 	bool useSmallWidgets {false}; //! Use small widgets in the palettes
 	bool showLabels {true}; //! Hide UI additional labels (Professional Mode)
 	bool showLabelsOfInactiveTabs {true}; //! Hide text label of inactive tabs of Advanced Docking System
+	bool forceFloatingContainerTitleBar {false}; //! Force a Qt-drawn title bar on floating palettes for desktops that hide native ones
 	bool useTabs {false}; //! Use a tabbed MainWidget a la FireFox
 	bool showFirstStartWizard {true}; //! Show a first start wizard to collect basic preferences on first run
 	bool showStartupDialog {true}; //! Whether to show the startup dialog or not

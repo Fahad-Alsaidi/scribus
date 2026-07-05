@@ -75,6 +75,7 @@ void Prefs_UserInterface::languageChange()
 	storyEditorUseSmartSelectionCheckBox->setToolTip( "<qt>" + tr( "The default behavior when double-clicking on a word is to select the word and the first following space. Smart selection will select only the word, without the following space." ) + "</qt>");
 	showLabels->setToolTip("<qt>" + tr( "Shows informational labels on palettes." ) + "</qt>");
 	showLabelsOfInactiveTabs->setToolTip("<qt>" + tr( "Shows labels of inactive palette tabs." ) + "</qt>");
+	forceFloatingContainerTitleBarCheckBox->setToolTip("<qt>" + tr( "Forces a title bar on floating palette windows. Useful on desktop environments that do not draw one, which can otherwise make palettes hard to move. Requires application restart." ) + "</qt>");
 }
 
 void Prefs_UserInterface::restoreDefaults(struct ApplicationPrefs *prefsData)
@@ -110,6 +111,7 @@ void Prefs_UserInterface::restoreDefaults(struct ApplicationPrefs *prefsData)
 	useSmallWidgetsCheckBox->setChecked(prefsData->uiPrefs.useSmallWidgets);
 	showLabels->setChecked(prefsData->uiPrefs.showLabels);
 	showLabelsOfInactiveTabs->setChecked(prefsData->uiPrefs.showLabelsOfInactiveTabs);
+	forceFloatingContainerTitleBarCheckBox->setChecked(prefsData->uiPrefs.forceFloatingContainerTitleBar);
 
 	storyEditorUseSmartSelectionCheckBox->setChecked(prefsData->storyEditorPrefs.smartTextSelection);
 	seFont.fromString(prefsData->storyEditorPrefs.guiFont);
@@ -134,6 +136,7 @@ void Prefs_UserInterface::saveGuiToPrefs(struct ApplicationPrefs *prefsData) con
 	prefsData->uiPrefs.useSmallWidgets = useSmallWidgetsCheckBox->isChecked();
 	prefsData->uiPrefs.showLabels = showLabels->isChecked();
 	prefsData->uiPrefs.showLabelsOfInactiveTabs = showLabelsOfInactiveTabs->isChecked();
+	prefsData->uiPrefs.forceFloatingContainerTitleBar = forceFloatingContainerTitleBarCheckBox->isChecked();
 
 	prefsData->storyEditorPrefs.guiFont = seFont.toString();
 	prefsData->storyEditorPrefs.smartTextSelection = storyEditorUseSmartSelectionCheckBox->isChecked();

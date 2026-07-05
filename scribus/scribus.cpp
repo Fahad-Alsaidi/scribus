@@ -310,6 +310,7 @@ int ScribusMainWindow::initScMW(bool primaryMainWindow)
 	CDockManager::setConfigFlag(CDockManager::FocusHighlighting, true);
 	CDockManager::setConfigFlag(CDockManager::DisableTabTextEliding, true);
 	CDockManager::setConfigFlag(CDockManager::ShowTabTextOnlyForActiveTab, !m_prefsManager.appPrefs.uiPrefs.showLabelsOfInactiveTabs);
+	CDockManager::setConfigFlag(CDockManager::FloatingContainerForceQWidgetTitleBar, m_prefsManager.appPrefs.uiPrefs.forceFloatingContainerTitleBar);
 
 	// Documentation: https://github.com/githubuser0xFFFF/Qt-Advanced-Docking-System/blob/master/doc/user-guide.md#auto-hide-configuration-flags
 	CDockManager::setAutoHideConfigFlags(CDockManager::DefaultAutoHideConfig);
