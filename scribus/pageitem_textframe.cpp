@@ -372,6 +372,7 @@ struct LineControl {
 	bool     startOfCol { true };
 	bool     hasDropCap;
 	double   dropCapWidth { 0.0 };
+	bool     dropCapIsLTR { false };
 	bool     afterOverflow { false };
 	bool     addLine { false };
 	bool     recalculateY { false };
@@ -1779,15 +1780,12 @@ void PageItem_TextFrame::layout()
 				}
 				//set left indentation
 				current.leftIndent = 0.0;
-				QChar capChar = itemText.text(a);
-				bool capIsArabicScript = (capChar.script() == QChar::Script_Arabic)
-									   || (capChar.script() == QChar::Script_Syriac)
-									   || (capChar.script() == QChar::Script_Nko);
 				// RTL: a line beside an active drop cap must reserve the cap width on the
 				// visual right; this block is normally skipped once maxDX != 0, so force
 				// it to run for those follow-lines.
 				bool rtlDropFollow = (style.direction() == ParagraphStyle::RTL)
-									 && current.hasDropCap && !DropCmode && capIsArabicScript
+									 && current.hasDropCap && !DropCmode
+									 && !current.dropCapIsLTR
 									 && (maxDX > current.colLeft);
 				if (current.addLeftIndent && ((maxDX == 0) || DropCmode || BulNumMode || rtlDropFollow))
 				{
@@ -2428,6 +2426,10 @@ void PageItem_TextFrame::layout()
 					// (maxDX = colLeft + leftIndent + capWidth, so it over-reserves
 					// by leftIndent). width() here already includes parEffectOffset.
 					current.dropCapWidth = current.glyphs[currentIndex].width();
+					// Strong-LTR char (e.g. English letter) keeps LTR placement even
+					// in an RTL paragraph. Weak types (Arabic-Indic digits) and
+					// strong-RTL chars (Arabic letters) follow the paragraph's RTL side.
+					current.dropCapIsLTR = (itemText.text(a).direction() == QChar::DirL);
 					if (style.direction() == ParagraphStyle::RTL)
 					{
 						GlyphCluster& cap = current.glyphs[currentIndex];
@@ -2740,7 +2742,7 @@ void PageItem_TextFrame::layout()
 					inOverflow = false;
 					outs = false;
 					current.startOfCol = false;
-					if (current.hasDropCap && style.direction() == ParagraphStyle::RTL)
+					if (current.hasDropCap && style.direction() == ParagraphStyle::RTL && current.dropCapIsLTR)
 						// English-style cap in an RTL frame: gap stays on the left, but only
 						// while the cap is still active — once it ends, fall through below.
 						current.restartX = current.xPos = current.colLeft + current.dropCapWidth;
