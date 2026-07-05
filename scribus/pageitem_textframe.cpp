@@ -371,6 +371,8 @@ struct LineControl {
 	int      column { 0 };
 	bool     startOfCol { true };
 	bool     hasDropCap;
+	double   dropCapWidth { 0.0 };
+	bool     dropCapIsLTR { false };
 	bool     afterOverflow { false };
 	bool     addLine { false };
 	bool     recalculateY { false };
@@ -837,8 +839,8 @@ struct LineControl {
 		int startItem = 0;
 		if (glyphs[startItem].hasFlag(ScLayout_DropCap))
 		{
-			startItem++;
-			naturalWidth += glyphs[startItem].width();
+			naturalWidth += glyphs[startItem].width();  // add the drop cap's own width first
+			startItem++;                                // then skip it in the loop below
 		}
 		// distribute whitespace on spaces and glyphs
 		for (int i = startItem; i < glyphsCount; ++i)
@@ -1653,7 +1655,22 @@ void PageItem_TextFrame::layout()
 					if (current.startOfCol && (m_firstLineOffset == FLOPFontAscent))
 						asce = font.ascent(hlcsize10);
 					glyphCluster.setScaleH(glyphCluster.scaleH() / glyphCluster.scaleV());
-					glyphCluster.setScaleV(realAsce / realCharHeight);
+					// Divide by the glyph's *effective* ascent: bare bbox ascent plus any
+					// upward GPOS lift. A negative gl.yoffset lifts the glyph up, and the
+					// renderer applies that lift inside the scaleV matrix, so the rendered
+					// top is (ascent - yoffset) * scaleV. The bare bbox ascent ignores the
+					// lift, so the cap overshoots and clips the frame top for calligraphic
+					// fonts like Noto Nastaliq Urdu. Direction-agnostic; no RTL branch.
+					double capAscent = 0.0, capDescent = 0.0;
+					for (const GlyphLayout& g : glyphCluster.glyphs())
+					{
+						GlyphMetrics gm = font.glyphBBox(g.glyph, charStyle.fontSize() / 10.0);
+						capAscent  = qMax(capAscent,  gm.ascent + qMax(0.0, -g.yoffset)); // +upward GPOS lift
+						capDescent = qMax(capDescent, gm.descent);
+					}
+					if (capAscent <= 0.0)
+						capAscent = realCharHeight;
+					glyphCluster.setScaleV(realAsce / (capAscent + capDescent));
 					glyphCluster.setScaleH(glyphCluster.scaleH() * glyphCluster.scaleV());
 					glyphCluster.xoffset -= 0.5; //drop caps are always to far from column left edge
 				}
@@ -1763,7 +1780,14 @@ void PageItem_TextFrame::layout()
 				}
 				//set left indentation
 				current.leftIndent = 0.0;
-				if (current.addLeftIndent && ((maxDX == 0) || DropCmode || BulNumMode))
+				// RTL: a line beside an active drop cap must reserve the cap width on the
+				// visual right; this block is normally skipped once maxDX != 0, so force
+				// it to run for those follow-lines.
+				bool rtlDropFollow = (style.direction() == ParagraphStyle::RTL)
+									 && current.hasDropCap && !DropCmode
+									 && !current.dropCapIsLTR
+									 && (maxDX > current.colLeft);
+				if (current.addLeftIndent && ((maxDX == 0) || DropCmode || BulNumMode || rtlDropFollow))
 				{
 					current.leftIndent = style.leftMargin() + autoLeftIndent;
 					if (itemText.isBlockStart(a))
@@ -1797,6 +1821,13 @@ void PageItem_TextFrame::layout()
 								}
 							}
 						}
+					}
+					// RTL drop-cap follow-lines: Constrain the available line width
+					// from the right margin to prevent text overlapping the right-aligned drop cap.
+					if (rtlDropFollow)
+					{
+						current.rightIndent = current.dropCapWidth;
+						current.mustLineEnd = current.colRight - current.rightIndent;
 					}
 					current.addLeftIndent = false;
 				}
@@ -2376,6 +2407,13 @@ void PageItem_TextFrame::layout()
 				}
 				// set the offset for Drop Cap, Bullet & Number List
 				current.glyphs[currentIndex].extraWidth += style.parEffectOffset();
+				// RTL: the line is reversed at render time, so trailing extraWidth lands on
+				// the marker's OUTER (right) edge, not between the marker and the text. Shift
+				// the marker glyph to the right of its advance box so the reserved offset
+				// falls on the inner (left) side, next to the text. Drop caps and bullet /
+				// numbered-list markers share this offset mechanism.
+				if (style.direction() == ParagraphStyle::RTL && (DropCmode || BulNumMode))
+					current.glyphs[currentIndex].xoffset += style.parEffectOffset();
 
 				if (DropCmode)
 				{
@@ -2384,6 +2422,38 @@ void PageItem_TextFrame::layout()
 					maxDY = current.yPos;
 					current.hasDropCap = true;
 					maxDX = current.xPos;
+					// Follow-line reserve must be the cap's own band, not maxDX
+					// (maxDX = colLeft + leftIndent + capWidth, so it over-reserves
+					// by leftIndent). width() here already includes parEffectOffset.
+					current.dropCapWidth = current.glyphs[currentIndex].width();
+					// Strong-LTR char (e.g. English letter) keeps LTR placement even
+					// in an RTL paragraph. Weak types (Arabic-Indic digits) and
+					// strong-RTL chars (Arabic letters) follow the paragraph's RTL side.
+					current.dropCapIsLTR = (itemText.text(a).direction() == QChar::DirL);
+					if (style.direction() == ParagraphStyle::RTL)
+					{
+						GlyphCluster& cap = current.glyphs[currentIndex];
+						double sizePt = charStyle.fontSize() / 10.0;
+						double pen = 0.0, inkRight = 0.0, inkLeft = 0.0;
+						for (const GlyphLayout& g : cap.glyphs())
+						{
+							double xMax = font.glyphBBox(g.glyph, sizePt).width;          // ink right edge (base pt)
+							QRectF ob = font.glyphOutline(g.glyph, sizePt).boundingRect();
+							double s  = (ob.right() != 0.0) ? xMax / ob.right() : 0.0;     // outline units -> base pt
+							double xMin = ob.left() * s;                                  // ink left edge (base pt)
+							inkRight = qMax(inkRight, pen + xMax);
+							inkLeft  = qMin(inkLeft,  pen + xMin);   // <0 only if ink bleeds left of origin
+							pen += g.xadvance;
+						}
+						double overhang  = qMax(0.0, (inkRight - pen)) * cap.scaleH();    // ink past advance, right
+						double leftBleed = qMax(0.0, -inkLeft)        * cap.scaleH();     // ink left of origin (Naskh bowl)
+						if (overhang > 0.0 || leftBleed > 0.0)
+						{
+							cap.extraWidth       += overhang + leftBleed; // box = full ink WIDTH (xMax - xMin)
+							cap.xoffset          += leftBleed;            // shift right so ink right edge stays at colRight
+							current.dropCapWidth += overhang + leftBleed; // follow-line reserve matches
+						}
+					}
 					double spacing = calculateLineSpacing (style, this);
 					current.yPos -= spacing * (DropLines - 1);
 					if (style.lineSpacingMode() == ParagraphStyle::BaselineGridLineSpacing)
@@ -2672,7 +2742,14 @@ void PageItem_TextFrame::layout()
 					inOverflow = false;
 					outs = false;
 					current.startOfCol = false;
-					current.restartX = current.xPos = qMax(maxDX, current.colLeft);
+					if (current.hasDropCap && style.direction() == ParagraphStyle::RTL && current.dropCapIsLTR)
+						// English-style cap in an RTL frame: gap stays on the left, but only
+						// while the cap is still active — once it ends, fall through below.
+						current.restartX = current.xPos = current.colLeft + current.dropCapWidth;
+					else if (style.direction() == ParagraphStyle::RTL)
+						current.restartX = current.xPos = current.colLeft;
+					else
+						current.restartX = current.xPos = qMax(maxDX, current.colLeft);
 					lastLineY = current.rowDesc;
 					if (current.hasDropCap)
 					{
