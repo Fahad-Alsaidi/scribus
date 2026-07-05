@@ -265,6 +265,7 @@ void SMPStyleWidget::show(ParagraphStyle *pstyle, QList<ParagraphStyle> &pstyles
 
 		tabList->setTabs(tabs, unitIndex, hasParentTabs);
 		tabList->setParentTabs(parent->tabValues());
+		tabList->setRtl(pstyle->direction() == ParagraphStyle::RTL);
 
 		tabList->setLeftIndentValue(pstyle->leftMargin() * unitRatio,pstyle->isInhLeftMargin());
 		tabList->setParentLeftIndent(parent->leftMargin() * unitRatio);
@@ -386,6 +387,7 @@ void SMPStyleWidget::show(ParagraphStyle *pstyle, QList<ParagraphStyle> &pstyles
 
 		alignment->setStyle(pstyle->alignment(), direction->getStyle());
 		tabList->setTabs(pstyle->tabValues(), unitIndex);
+		tabList->setRtl(pstyle->direction() == ParagraphStyle::RTL);
 		tabList->setLeftIndentValue(pstyle->leftMargin() * unitRatio);
 		tabList->setFirstLineValue(pstyle->firstIndent() * unitRatio);
 		tabList->setRightIndentValue(pstyle->rightMargin() * unitRatio);
@@ -758,6 +760,18 @@ void SMPStyleWidget::showTabs(const QList<ParagraphStyle*> &pstyles, int unitInd
 		}
 	}
 	tabList->setTabs(t, unitIndex);
+
+	// Mirror ruler for RTL — only if all selected styles agree on RTL direction
+	bool isRtl = (pstyles[0]->direction() == ParagraphStyle::RTL);
+	for (int i = 1; i < pstyles.count(); ++i)
+	{
+		if (pstyles[i]->direction() != pstyles[0]->direction())
+		{
+			isRtl = false;
+			break;
+		}
+	}
+	tabList->setRtl(isRtl);
 
 	double l = -4000.0;
 	for (int i = 0; i < pstyles.count(); ++i)

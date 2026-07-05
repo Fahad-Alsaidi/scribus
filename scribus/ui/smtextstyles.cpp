@@ -758,6 +758,9 @@ void SMParagraphStyle::slotDirection()
 		for (int i = 0; i < m_selection.count(); ++i)
 			m_selection[i]->setDirection(style);
 
+	// Mirror the tab ruler to match the new direction
+	m_pwidget->tabList->setRtl(style == ParagraphStyle::RTL);
+
 	slotSelectionDirty();
 }
 

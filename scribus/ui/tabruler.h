@@ -40,6 +40,7 @@ public:
 	bool mousePressed { false };
 	QList<ParagraphStyle::TabRecord> tabValues;
 	bool haveInd { false };
+	bool m_rtl { false };
 	int unitIndex { 0 };
 	int offset { 0 };
 	int actTab { -1 };
@@ -59,6 +60,7 @@ public slots:
 	void removeActTab();
 	void moveFirstLine(double t);
 	void moveLeftIndent(double t);
+	void setRtl(bool rtl) { m_rtl = rtl; update(); }
 
 signals:
 	void tabMoved(double);
@@ -80,6 +82,8 @@ protected:
 	void leaveEvent(QEvent*) override;
 	
 private:
+	int tabToScreen(double tabPos) const;
+	QCursor tabulatorCursor() const;
 	double m_iter { 10.0 }; // Result of unitRulerGetIter1FromIndex() for point unit
 	double m_iter2 { 100.0 }; // Result of unitRulerGetIter2FromIndex() for point unit
 	double m_rulerWidth { 0.0 };
@@ -98,6 +102,8 @@ public:
 	~Tabruler() {};
 
 	virtual void setTabs(const QList<ParagraphStyle::TabRecord>& tabs, int unit);
+
+	void setRtl(bool rtl);
 
 	QList<ParagraphStyle::TabRecord> getTabVals() const;
 	double getFirstLine() const;

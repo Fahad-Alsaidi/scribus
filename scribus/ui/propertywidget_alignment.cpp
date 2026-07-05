@@ -17,8 +17,10 @@ for which a new license (GPL+exception) is in place.
 #include "scribus.h"
 #include "scribusapp.h"
 #include "scribusdoc.h"
+#include "scribusview.h"
 #include "selection.h"
 #include "tabmanager.h"
+#include "hruler.h"
 
 PropertyWidget_Alignment::PropertyWidget_Alignment(QWidget* parent) : QFrame(parent)
 {
@@ -327,6 +329,12 @@ void PropertyWidget_Alignment::handleDirection(int d)
 	{
 		m_doc->itemSelection_SetAlignment(ParagraphStyle::LeftAligned, &tempSelection);
 		textAlignment->setTypeStyle(ParagraphStyle::LeftAligned);
+	}
+	// Update the horizontal ruler to reflect the new direction
+	if (m_item->isTextFrame())
+	{
+		m_ScMW->view->horizRuler->setRtl(d == ParagraphStyle::RTL);
+		m_ScMW->view->horizRuler->update();
 	}
 }
 

@@ -30,6 +30,7 @@ public:
 public slots:
 	void exitOK();
 	void setTabList(const QList<ParagraphStyle::TabRecord>& tabList);
+	void setRtl(bool rtl);
 
 	private:
 	QHBoxLayout* layout10;

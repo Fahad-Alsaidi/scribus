@@ -1510,15 +1510,16 @@ void PageItem_TextFrame::layout()
 			}
 			if (current.isEmpty)
 			{
-				if (style.rightMargin() == 0)
+				// In RTL, the logical left margin acts as the visual right margin
+				double visualRightMargin = (style.direction() == ParagraphStyle::RTL) ? style.leftMargin() : style.rightMargin();
+				if (visualRightMargin == 0)
 				{
-					//addLine = true;
-					current.rightMargin = 0.0;
+					current.rightMargin = 0.0 ;
 				}
 				else
 				{
 					if (current.lastInRowLine)
-						current.rightMargin = style.rightMargin();
+						current.rightMargin = visualRightMargin;
 					else
 						current.rightMargin = 0.0;
 				}
@@ -1789,30 +1790,51 @@ void PageItem_TextFrame::layout()
 									 && (maxDX > current.colLeft);
 				if (current.addLeftIndent && ((maxDX == 0) || DropCmode || BulNumMode || rtlDropFollow))
 				{
-					current.leftIndent = style.leftMargin() + autoLeftIndent;
-					if (itemText.isBlockStart(a))
+					if (style.direction() == ParagraphStyle::RTL)
 					{
-						if (style.direction() == ParagraphStyle::RTL)
+						// RTL: logical left margin is on the visual right side
+						// logical right margin is on the visual left side
+						current.leftIndent = style.rightMargin();
+						current.rightIndent = style.leftMargin();
+
+						if (itemText.isBlockStart(a))
 						{
-							// use rightIndent to not mess with old behavior
-							current.rightIndent = style.firstIndent();
-							// line width should consider RTL indent when it breaks the line.
-							current.mustLineEnd = current.colRight - current.rightIndent;
+							current.rightIndent += style.firstIndent();
 						}
-						else
-							current.leftIndent += style.firstIndent();
-						if (BulNumMode || DropCmode)
+						// line width should consider RTL indent when it breaks the line.
+						current.mustLineEnd = current.colRight - current.rightIndent;
+					}
+					else
+					{
+						// LTR: Original behavior
+						current.leftIndent = style.leftMargin() + autoLeftIndent;
+						if (itemText.isBlockStart(a))
 						{
-							if (style.parEffectIndent())
+							current.leftIndent += style.firstIndent();
+						}
+					}
+
+					if (BulNumMode || DropCmode)
+					{
+						if (style.parEffectIndent())
+						{
+							double effectWidth = 0.0;
+							for (int j = i; shapedText.haveMoreText(j, glyphClusters); ++j)
 							{
-								double effectWidth = 0.0;
-								for (int j = i; shapedText.haveMoreText(j, glyphClusters); ++j)
-								{
-									const auto& glyph = glyphClusters[j];
-									if (glyph.firstChar() != a)
-										break;
-									effectWidth += glyph.width();
-								}
+								const auto & glyph = glyphClusters[j];
+								if (glyph.firstChar() != a)
+									break;
+								effectWidth += glyph.width();
+							}
+
+							if (style.direction() == ParagraphStyle::RTL)
+							{
+								current.rightIndent -= style.parEffectOffset() + effectWidth;
+								if (current.rightIndent < 0.0)
+									current.rightIndent = 0.0;
+							}
+							else
+							{
 								current.leftIndent -= style.parEffectOffset() + effectWidth;
 								if (current.leftIndent < 0.0)
 								{
@@ -2059,9 +2081,31 @@ void PageItem_TextFrame::layout()
 				}
 			}
 			// right tab stuff
-			if (tabs.active)
+			QChar ch = itemText.text(a);
+
+			// Detect all possible decimal separators (ASCII, Eastern Arabic, Persian, System Locale)
+			bool isPoint = (ch == '.' || ch == QChar(0x066B) || ch == QLocale().decimalPoint());
+			bool isComma = (ch == ',' || ch == QChar(0x066B) || ch == QChar(0x060C) || ch == QLocale().decimalPoint());
+
+			bool isRTLDecimal = (style.direction() == ParagraphStyle::RTL && (tabs.status == TabCOMMA || tabs.status == TabPOINT));
+
+			if (isRTLDecimal)
 			{
-				if (((itemText.text(a) == '.') && (tabs.status == TabPOINT)) || ((itemText.text(a) == ',') && (tabs.status == TabCOMMA)) || (itemText.text(a) == SpecialChars::TAB))
+				// In RTL, hitting the decimal separator turns the tab pull ON for the fractional part
+				if ((isPoint && tabs.status == TabPOINT) || (isComma && tabs.status == TabCOMMA))
+				{
+					tabs.active = true;
+				}
+				else if (ch == SpecialChars::TAB)
+				{
+					tabs.active = false;
+					tabs.status = TabNONE;
+				}
+			}
+			else if (tabs.active)
+			{
+				// Original LTR logic
+				if ((isPoint && tabs.status == TabPOINT) || (isComma && tabs.status == TabCOMMA) || (ch == SpecialChars::TAB))
 				{
 					tabs.active = false;
 					tabs.status = TabNONE;
@@ -2097,6 +2141,10 @@ void PageItem_TextFrame::layout()
 							}
 						}
 						tabs.active = (tabs.status != TabLEFT);
+						// FIX: Start inactive for RTL decimal tabs so the integer part advances normally
+						if (style.direction() == ParagraphStyle::RTL && (tabs.status == TabCOMMA || tabs.status == TabPOINT)) {
+							tabs.active = false;
+						}
 						if (current.xPos == tCurX)  // no more tabs found
 						{
 							current.xPos = nextAutoTab (current, this);

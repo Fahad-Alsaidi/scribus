@@ -82,6 +82,23 @@ void RulerT::setTabs(const QList<ParagraphStyle::TabRecord>& tabs, int unit)
 	update();
 }
 
+int RulerT::tabToScreen(double tabPos) const
+{
+	return static_cast<int>((m_rtl ? width() - tabPos : tabPos) - offset);
+}
+
+QCursor RulerT::tabulatorCursor() const
+{
+	QCursor c = IconManager::instance().loadCursor("cursor-tabulator", 3);
+	if (m_rtl)
+	{
+		QPixmap pix = c.pixmap();
+		QPixmap mirrored = pix.transformed(QTransform(-1, 0, 0, 1, 0, 0));
+		c = QCursor(mirrored, pix.width() - c.hotSpot().x() - 1, c.hotSpot().y());
+	}
+	return c;
+}
+
 void RulerT::paintEvent(QPaintEvent *)
 {
 	double xl;
@@ -108,52 +125,66 @@ void RulerT::paintEvent(QPaintEvent *)
 	p.setFont(font());
 	p.setPen(QPen(textColor, 1, Qt::SolidLine, Qt::FlatCap, Qt::MiterJoin));
 
-	for (xl = 0; xl < width() + offset; xl += m_iter)
-	{
-		if (xl < offset)
-			continue;
-		p.drawLine(qRound(xl), scaleS, qRound(xl), bottomline);
-	}
+	// In RTL the logical origin (value 0) is the right edge (content x = width()).
+	// All three tick grids start there and step LEFT by exact multiples of their
+	// spacing, so ticks stay evenly spaced and the numbers come out whole.
+	// Visible content range is [offset, width() + offset].
 
-	for (xl = 0; xl < width() + (m_iter2 / 2) + offset; xl += (m_iter2 / 2))
-	{
-		if (xl < offset)
-			continue;
-		p.drawLine(qRound(xl), scaleM, qRound(xl), bottomline);
-	}
+	// Small and medium ticks — unified loop for RTL/LTR
+	auto drawTicks = [&](double step, int yTop) {
+		double xl;
+		if (m_rtl)
+		{
+			for (xl = width(); xl >= offset; xl -= step)
+				p.drawLine(qRound(xl), yTop, qRound(xl), bottomline);
+		}
+		else
+		{
+			for (xl = ceil(offset / step) * step; xl < width() + step + offset; xl += step)
+				p.drawLine(qRound(xl), yTop, qRound(xl), bottomline);
+		}
+	};
+	drawTicks(m_iter, scaleS);
+	drawTicks(m_iter2 / 2.0, scaleM);
 
-	for (xl = 0; xl < width() + (m_iter2 / 2) + offset; xl += m_iter2)
+	// Large ticks + numbers
+	double startL = m_rtl ? width() : 0.0;
+	for (xl = startL;
+		 m_rtl ? (xl > offset - 20) : (xl < width() + (m_iter2 / 2) + offset);
+		 xl += (m_rtl ? -m_iter2 : m_iter2))
 	{
-		if (xl < offset - 20) // -20px buffer to draw number that start outside the clipping rect
+		if (!m_rtl && xl < offset - 20) // -20px buffer to draw number that starts outside the clipping rect
 			continue;
 		p.drawLine(qRound(xl), scaleL, qRound(xl), bottomline);
+		// RTL: numbers count from the right edge (width() - xl), LTR: from left (xl)
+		double dispXl = m_rtl ? (width() - xl) : xl;
 		switch (unitIndex)
 		{
-			case SC_IN:
-			{
-				QString tx;
-				int num1 = static_cast<int>(xl / m_iter2);
-				if (num1 != 0)
-					tx = QString::number(num1);
-				double frac = (xl / m_iter2) - num1;
-				if ((frac > 0.24) && (frac < 0.26))
-					tx += QChar(0xBC);
-				if ((frac > 0.49) && (frac < 0.51))
-					tx += QChar(0xBD);
-				if ((frac > 0.74) && (frac < 0.76))
-					tx += QChar(0xBE);
-				p.drawText(qRound(xl + 2), textline, tx);
-				break;
-			}
-			case SC_P:
-				p.drawText(qRound(xl + 2), textline, QString::number(xl / m_iter));
-				break;
-			case SC_CM:
-				p.drawText(qRound(xl + 2), textline, QString::number(xl / m_iter / 10));
-				break;
-			default:
-				p.drawText(qRound(xl + 2), textline, QString::number(xl / m_iter * 10));
-				break;
+		case SC_IN:
+		{
+			QString tx;
+			int num1 = static_cast<int>(dispXl / m_iter2);
+			if (num1 != 0)
+				tx = QString::number(num1);
+			double frac = (dispXl / m_iter2) - num1;
+			if ((frac > 0.24) && (frac < 0.26))
+				tx += QChar(0xBC);
+			if ((frac > 0.49) && (frac < 0.51))
+				tx += QChar(0xBD);
+			if ((frac > 0.74) && (frac < 0.76))
+				tx += QChar(0xBE);
+			p.drawText(qRound(xl + 2), textline, tx);
+			break;
+		}
+		case SC_P:
+			p.drawText(qRound(xl + 2), textline, QString::number(dispXl / m_iter));
+			break;
+		case SC_CM:
+			p.drawText(qRound(xl + 2), textline, QString::number(dispXl / m_iter / 10));
+			break;
+		default:
+			p.drawText(qRound(xl + 2), textline, QString::number(dispXl / m_iter * 10));
+			break;
 		}
 	}
 
@@ -163,44 +194,63 @@ void RulerT::paintEvent(QPaintEvent *)
 			p.setPen(QPen(selectedColor, 2, Qt::SolidLine, Qt::FlatCap, Qt::MiterJoin));
 		else
 			p.setPen(QPen(textColor, 2, Qt::SolidLine, Qt::FlatCap, Qt::MiterJoin));
+		// In RTL, tab positions are stored as distance from logical start (right edge),
+		// so screen position = width() - tabPosition.
+		double tabScreenPos = m_rtl ? (width() - tabValues[i].tabPosition) : tabValues[i].tabPosition;
+		int ts = qRound(tabScreenPos);
+		int foot = m_rtl ? -1 : 1; // direction multiplier for glyph feet
+		// Vertical stem is common to all tab types
+		p.drawLine(ts, tabline, ts, bottomline - 1);
 		switch (tabValues.at(i).tabType)
 		{
-			case ParagraphStyle::LeftTab:
-				p.drawLine(qRound(tabValues[i].tabPosition), tabline, qRound(tabValues[i].tabPosition), bottomline - 1);
-				p.drawLine(qRound(tabValues[i].tabPosition), bottomline - 1, qRound(tabValues[i].tabPosition + 8), bottomline - 1);
-				break;
-			case ParagraphStyle::RightTab:
-				p.drawLine(qRound(tabValues[i].tabPosition), tabline, qRound(tabValues[i].tabPosition), bottomline - 1);
-				p.drawLine(qRound(tabValues[i].tabPosition), bottomline - 1, qRound(tabValues[i].tabPosition - 8), bottomline - 1);
-				break;
-			case ParagraphStyle::CommaTab:
-			case ParagraphStyle::PeriodTab:
-				p.drawLine(qRound(tabValues[i].tabPosition), tabline, qRound(tabValues[i].tabPosition), bottomline - 1);
-				p.drawLine(qRound(tabValues[i].tabPosition - 4), bottomline - 1, qRound(tabValues[i].tabPosition + 4), bottomline - 1);
-				p.drawLine(qRound(tabValues[i].tabPosition + 3), bottomline - 3, qRound(tabValues[i].tabPosition + 2), bottomline - 3);
-				break;
-			case ParagraphStyle::CenterTab:
-				p.drawLine(qRound(tabValues[i].tabPosition), tabline, qRound(tabValues[i].tabPosition), bottomline - 1);
-				p.drawLine(qRound(tabValues[i].tabPosition - 4), bottomline - 1, qRound(tabValues[i].tabPosition + 4), bottomline - 1);
-				break;
-			default:
-				break;
+		case ParagraphStyle::LeftTab:
+			p.drawLine(ts, bottomline - 1, ts + foot * 8, bottomline - 1);
+			break;
+		case ParagraphStyle::RightTab:
+			p.drawLine(ts, bottomline - 1, ts - foot * 8, bottomline - 1);
+			break;
+		case ParagraphStyle::CommaTab:
+		case ParagraphStyle::PeriodTab:
+			p.drawLine(ts - 4, bottomline - 1, ts + 4, bottomline - 1);
+			p.drawLine(ts + foot * 3, bottomline - 3, ts + foot * 2, bottomline - 3);
+			break;
+		case ParagraphStyle::CenterTab:
+			p.drawLine(ts - 4, bottomline - 1, ts + 4, bottomline - 1);
+			break;
+		default:
+			break;
 		}
 	}
 
 	if (haveInd)
 	{
-		// First Indent
 		p.setPen(QPen(textColor, 1, Qt::SolidLine, Qt::FlatCap, Qt::MiterJoin));
-		p.drawLine(qRound(firstLine + leftIndent), tabline - 2, qRound(firstLine + leftIndent), bottomline);
-		p.setPen(Qt::NoPen);
-		p.setRenderHints(QPainter::Antialiasing, true);
-		p.drawRect(QRect(qRound(firstLine + leftIndent), tabline - 8, 8, 6));
+		if (m_rtl)
+		{
+			// RTL: logical start is right edge; indent/firstLine measured from right
+			double indScreenPos = width() - leftIndent - firstLine;
+			p.drawLine(qRound(indScreenPos), tabline - 2, qRound(indScreenPos), bottomline);
+			p.setPen(Qt::NoPen);
+			p.setRenderHints(QPainter::Antialiasing, true);
+			p.drawRect(QRect(qRound(indScreenPos) - 8, tabline - 8, 8, 6));
 
-		// Left Margin
-		QPolygon cr2;
-		cr2.setPoints(3, qRound(leftIndent), tabline, qRound(leftIndent + 8), tabline, qRound(leftIndent), bottomline);
-		p.drawPolygon(cr2);
+			double leftScreenPos = width() - leftIndent;
+			QPolygon cr2;
+			cr2.setPoints(3, qRound(leftScreenPos), tabline, qRound(leftScreenPos - 8), tabline, qRound(leftScreenPos), bottomline);
+			p.drawPolygon(cr2);
+		}
+		else
+		{
+			// LTR: original
+			p.drawLine(qRound(firstLine + leftIndent), tabline - 2, qRound(firstLine + leftIndent), bottomline);
+			p.setPen(Qt::NoPen);
+			p.setRenderHints(QPainter::Antialiasing, true);
+			p.drawRect(QRect(qRound(firstLine + leftIndent), tabline - 8, 8, 6));
+
+			QPolygon cr2;
+			cr2.setPoints(3, qRound(leftIndent), tabline, qRound(leftIndent + 8), tabline, qRound(leftIndent), bottomline);
+			p.drawPolygon(cr2);
+		}
 	}
 	p.end();
 }
@@ -231,7 +281,8 @@ void RulerT::mousePressEvent(QMouseEvent *m)
 	}
 	for (qsizetype i = 0; i < tabValues.count(); ++i)
 	{
-		fpo = QRect(static_cast<int>(tabValues[i].tabPosition - offset) - 3, 15, 8, 8);
+		int tabScreenX = tabToScreen(tabValues[i].tabPosition);
+		fpo = QRect(tabScreenX - 3, 15, 8, 8);
 		if (fpo.contains(m->pos()))
 		{
 			rulerCode = 3;
@@ -248,7 +299,9 @@ void RulerT::mousePressEvent(QMouseEvent *m)
 	if ((rulerCode == 0) && (m->button() == Qt::LeftButton))
 	{
 		ParagraphStyle::TabRecord tb;
-		tb.tabPosition = static_cast<double>(mPosX + offset);
+		// In RTL, logical position = rtlAnchor - screenX; in LTR = screenX + offset
+		tb.tabPosition = m_rtl ? static_cast<double>(width() - mPosX - offset)
+		                       : static_cast<double>(mPosX + offset);
 		tabValues.prepend(tb);
 		actTab = 0;
 		rulerCode = 3;
@@ -306,10 +359,13 @@ void RulerT::mouseMoveEvent(QMouseEvent *m)
 	if (mousePressed && (mPosY < height()) && (mPosY > 0) && (mPosX > 0) && (mPosX < width()))
 	{
 		QApplication::changeOverrideCursor(QCursor(Qt::SizeHorCursor));
+		// In RTL, dragging right moves away from logical start (right edge), so negate delta
+		int dx = mouseX - mPosX;
+		int logicalDx = m_rtl ? -dx : dx;
 		switch (rulerCode)
 		{
 			case 1:
-				firstLine -= mouseX - mPosX;
+				firstLine -= logicalDx;
 				if (firstLine + leftIndent + offset < offset)
 					firstLine += mouseX - mPosX;
 				if (firstLine + leftIndent > m_rulerWidth)
@@ -319,7 +375,7 @@ void RulerT::mouseMoveEvent(QMouseEvent *m)
 				break;
 			case 2:
 				oldInd = leftIndent+firstLine;
-				leftIndent -= mouseX - mPosX;
+				leftIndent -= logicalDx;
 				if (leftIndent < 0)
 					leftIndent = 0;
 				if (leftIndent > m_rulerWidth - 1)
@@ -330,7 +386,7 @@ void RulerT::mouseMoveEvent(QMouseEvent *m)
 				update();
 				break;
 			case 3:
-				tabValues[actTab].tabPosition -= mouseX - mPosX;
+				tabValues[actTab].tabPosition -= logicalDx;
 				if (tabValues[actTab].tabPosition < 0)
 					tabValues[actTab].tabPosition = 0;
 				if (tabValues[actTab].tabPosition > m_rulerWidth - 1)
@@ -347,7 +403,7 @@ void RulerT::mouseMoveEvent(QMouseEvent *m)
 	}
 	if ((!mousePressed) && (mPosY < height()) && (mPosY > 0) && (mPosX > 0) && (mPosX < width()))
 	{
-		setCursor(IconManager::instance().loadCursor("cursor-tabulator", 3));
+		setCursor(tabulatorCursor());
 		if (haveInd)
 		{
 			fpo = QRect(static_cast<int>(firstLine + leftIndent - offset) - 4, 0, 8, midline);
@@ -365,7 +421,8 @@ void RulerT::mouseMoveEvent(QMouseEvent *m)
 		}
 		for (qsizetype i = 0; i < tabValues.count(); ++i)
 		{
-			fpo = QRect(static_cast<int>(tabValues[i].tabPosition-offset) - 3, tabline, 8, 8);
+			int tabScreenX = tabToScreen(tabValues[i].tabPosition);
+			fpo = QRect(tabScreenX - 3, tabline, 8, 8);
 			if (fpo.contains(m->pos()))
 			{
 				setCursor(QCursor(Qt::SizeHorCursor));
@@ -759,6 +816,50 @@ void Tabruler::languageChange()
 		rightIndentData->setSuffix(unitSuffix);
 	}
 	tabData->setSuffix(unitSuffix);
+}
+
+void Tabruler::setRtl(bool rtl)
+{
+	ruler->setRtl(rtl);
+	// Swap LeftTab/RightTab icons so the combo matches the mirrored ruler glyphs
+	IconManager& im = IconManager::instance();
+	int  oldIndex = typeCombo->currentIndex();
+	bool blocked  = typeCombo->blockSignals(true);
+	typeCombo->clear();
+	if (rtl)
+	{
+		typeCombo->addItem(im.loadIcon("tabulator-right"),  tr("Right"),  ParagraphStyle::LeftTab);
+		typeCombo->addItem(im.loadIcon("tabulator-center"), tr("Center"), ParagraphStyle::CenterTab);
+		typeCombo->addItem(im.loadIcon("tabulator-comma"),  tr("Comma"),  ParagraphStyle::CommaTab);
+		typeCombo->addItem(im.loadIcon("tabulator-dot"),    tr("Period"), ParagraphStyle::PeriodTab);
+		typeCombo->addItem(im.loadIcon("tabulator-left"),   tr("Left"),   ParagraphStyle::RightTab);
+	}
+	else
+	{
+		typeCombo->addItem(im.loadIcon("tabulator-left"),   tr("Left"),   ParagraphStyle::LeftTab);
+		typeCombo->addItem(im.loadIcon("tabulator-center"), tr("Center"), ParagraphStyle::CenterTab);
+		typeCombo->addItem(im.loadIcon("tabulator-comma"),  tr("Comma"),  ParagraphStyle::CommaTab);
+		typeCombo->addItem(im.loadIcon("tabulator-dot"),    tr("Period"), ParagraphStyle::PeriodTab);
+		typeCombo->addItem(im.loadIcon("tabulator-right"),  tr("Right"),  ParagraphStyle::RightTab);
+	}
+	typeCombo->setCurrentIndex(oldIndex);
+	typeCombo->blockSignals(blocked);
+
+	if (m_haveFirst)
+	{
+		if (rtl)
+		{
+			leftIndentData->setToolTip(tr("Indentation from the right for the whole paragraph"));
+			rightIndentData->setToolTip(tr("Indentation from the left for the whole paragraph"));
+		}
+		else
+		{
+			leftIndentData->setToolTip(tr("Indentation from the left for the whole paragraph"));
+			rightIndentData->setToolTip(tr("Indentation from the right for the whole paragraph"));
+		}
+		leftIndentLabel->setToolTip(leftIndentData->toolTip());
+		rightIndentLabel->setToolTip(rightIndentData->toolTip());
+	}
 }
 
 void Tabruler::setTabs(const QList<ParagraphStyle::TabRecord>& tabs, int unit)
