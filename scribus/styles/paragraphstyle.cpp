@@ -261,6 +261,11 @@ static QString toXMLString(ParagraphStyle::AlignmentType val)
 	return QString::number(static_cast<int>(val));
 }
 
+static QString toXMLString(ParagraphStyle::SuffixAlignment val)
+{
+	return QString::number(static_cast<int>(val));
+}
+
 static QString toXMLString(ParagraphStyle::DirectionType val)
 {
 	return QString::number(static_cast<int>(val));
@@ -342,6 +347,12 @@ template<>
 ParagraphStyle::AlignmentType parse<ParagraphStyle::AlignmentType>(const Xml_string& str)
 {
 	return parseEnum<ParagraphStyle::AlignmentType>(str);
+}
+
+template<>
+ParagraphStyle::SuffixAlignment parse<ParagraphStyle::SuffixAlignment>(const Xml_string& str)
+{
+	return parseEnum<ParagraphStyle::SuffixAlignment>(str);
 }
 
 template<>

@@ -76,6 +76,13 @@ public:
 		CenterTab = 4
 	};
 
+	enum SuffixAlignment
+	{
+		SuffixAlign_Left   = 0,
+		SuffixAlign_Center = 1,
+		SuffixAlign_Right  = 2
+	};
+
 	struct TabRecord
 	{
 		qreal tabPosition {0.0};
