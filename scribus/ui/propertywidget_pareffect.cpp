@@ -45,6 +45,10 @@ PropertyWidget_ParEffect::PropertyWidget_ParEffect(QWidget *parent) : QFrame(par
 	peCombo->setCurrentIndex(0);
 	setType(peCombo->currentData().toInt());
 
+	suffixAlignmentCombo->addItem(tr("Left"), ParagraphStyle::SuffixAlign_Left);
+	suffixAlignmentCombo->addItem(tr("Center"), ParagraphStyle::SuffixAlign_Center);
+	suffixAlignmentCombo->addItem(tr("Right"), ParagraphStyle::SuffixAlign_Right);
+
 	iconSetChange();
 
 	connect(ScQApp, SIGNAL(iconSetChanged()), this, SLOT(iconSetChange()));
@@ -232,6 +236,7 @@ void PropertyWidget_ParEffect::updateStyle(const ParagraphStyle& newPStyle)
 	QSignalBlocker blockerA(peOffset);
 	QSignalBlocker blockerB(peIndent);
 	QSignalBlocker blockerC(peCharStyleCombo);
+	QSignalBlocker blockerD(suffixAlignmentCombo);
 
 	if (newPStyle.hasDropCap())
 	{
@@ -272,6 +277,10 @@ void PropertyWidget_ParEffect::updateStyle(const ParagraphStyle& newPStyle)
 	peIndent->setChecked(newPStyle.parEffectIndent());
 	showCharStyle(newPStyle.peCharStyleName());
 
+	int idx = suffixAlignmentCombo->findData(static_cast<int>(newPStyle.suffixAlignment()));
+	if (idx >= 0)
+		suffixAlignmentCombo->setCurrentIndex(idx);
+
 	if (oldPeComboIndex != peCombo->currentIndex())
 		emit needsRelayout();
 }
@@ -289,6 +298,7 @@ void PropertyWidget_ParEffect::connectSignals()
 	connect(numStart, SIGNAL(valueChanged(int)), this, SLOT(handleNumStart(int)), Qt::UniqueConnection);
 	connect(peOffset, SIGNAL(valueChanged(double)), this, SLOT(handlePEOffset(double)), Qt::UniqueConnection);
 	connect(peIndent, SIGNAL(toggled(bool)), this, SLOT(handlePEIndent(bool)), Qt::UniqueConnection);
+	connect(suffixAlignmentCombo, SIGNAL(activated(int)), this, SLOT(handleSuffixAlignment(int)), Qt::UniqueConnection);
 	connect(peCharStyleCombo, SIGNAL(newStyle(QString)), this, SLOT(handlePECharStyle(QString)), Qt::UniqueConnection);
 }
 
@@ -305,6 +315,7 @@ void PropertyWidget_ParEffect::disconnectSignals()
 	disconnect(numStart, SIGNAL(valueChanged(int)), this, SLOT(handleNumStart(int)));
 	disconnect(peOffset, SIGNAL(valueChanged(double)), this, SLOT(handlePEOffset(double)));
 	disconnect(peIndent, SIGNAL(toggled(bool)), this, SLOT(handlePEIndent(bool)));
+	disconnect(suffixAlignmentCombo, SIGNAL(activated(int)), this, SLOT(handleSuffixAlignment(int)));
 	disconnect(peCharStyleCombo, SIGNAL(newStyle(QString)), this, SLOT(handlePECharStyle(QString)));
 }
 
@@ -543,6 +554,16 @@ void PropertyWidget_ParEffect::handlePEIndent(bool indent)
 		return;
 	ParagraphStyle newStyle;
 	newStyle.setParEffectIndent(indent);
+	handleChanges(m_item, newStyle);
+}
+
+void PropertyWidget_ParEffect::handleSuffixAlignment(int index)
+{
+	if (!m_doc || !m_item)
+		return;
+	ParagraphStyle newStyle;
+	auto align = static_cast<ParagraphStyle::SuffixAlignment>(suffixAlignmentCombo->itemData(index).toInt());
+	newStyle.setSuffixAlignment(align);
 	handleChanges(m_item, newStyle);
 }
 
