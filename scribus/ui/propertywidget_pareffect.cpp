@@ -189,6 +189,9 @@ void PropertyWidget_ParEffect::setType(int id)
 		stackedWidget->setVisible(true);
 		peGroup->setVisible(true);
 	}
+	bool isNumberedList = (id == 2);
+	suffixAlignmentLabel->setVisible(isNumberedList);
+	suffixAlignmentCombo->setVisible(isNumberedList);
 }
 
 void PropertyWidget_ParEffect::fillBulletStrEditCombo()
