@@ -868,6 +868,8 @@ void Scribus171Format::putPStyle(ScXmlStreamWriter & docu, const ParagraphStyle 
 		docu.writeAttribute("NumerationPrefix", style.numPrefix());
 	if (!style.isInhNumSuffix())
 		docu.writeAttribute("NumerationSuffix", style.numSuffix());
+	if (!style.isInhSuffixAlignment())
+		docu.writeAttribute("SuffixAlignment", style.suffixAlignment());
 	if (!style.isInhNumStart())
 		docu.writeAttribute("NumerationStart", style.numStart());
 	if (!style.isInhNumRestart())
