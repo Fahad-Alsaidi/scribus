@@ -1789,11 +1789,18 @@ void PageItem_TextFrame::layout()
 										break;
 									effectWidth += glyph.width();
 								}
-								current.leftIndent -= style.parEffectOffset() + effectWidth;
-								if (current.leftIndent < 0.0)
+
+								// Left align (numbered lists only): number stays at fixed position, skip old math
+								bool useLeftAlign = style.hasNum() && (style.suffixAlignment() == ParagraphStyle::SuffixAlign_Left);
+
+								if (!useLeftAlign)
 								{
-									autoLeftIndent = abs(current.leftIndent);
-									current.leftIndent = 0.0;
+									current.leftIndent -= style.parEffectOffset() + effectWidth;
+									if (current.leftIndent < 0.0)
+									{
+										autoLeftIndent = abs(current.leftIndent);
+										current.leftIndent = 0.0;
+									}
 								}
 							}
 						}
