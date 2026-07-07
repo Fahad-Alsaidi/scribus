@@ -71,7 +71,9 @@ void CellStyle::getNamedResources(ResourceCollection& lists) const
 	for (const BaseStyle* style = parentStyle(); style != nullptr; style = style->parentStyle())
 		lists.collectCellStyle(style->name());
 	lists.collectColor(fillColor());
-	// TODO: Collect border colors.
+	for (const TableBorder& b : { leftBorder(), rightBorder(), topBorder(), bottomBorder() })
+		for (const TableBorderLine& l : b.borderLines())
+			lists.collectColor(l.color());
 }
 
 void CellStyle::replaceNamedResources(ResourceCollection& newNames)

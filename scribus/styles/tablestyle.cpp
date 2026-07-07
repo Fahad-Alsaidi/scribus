@@ -87,7 +87,9 @@ void TableStyle::getNamedResources(ResourceCollection& lists) const
 	for (const BaseStyle* style = parentStyle(); style != nullptr; style = style->parentStyle())
 		lists.collectTableStyle(style->name());
 	lists.collectColor(fillColor());
-	// TODO: Collect colors of borders.
+	for (const TableBorder& b : { leftBorder(), rightBorder(), topBorder(), bottomBorder() })
+		for (const TableBorderLine& l : b.borderLines())
+			lists.collectColor(l.color());
 
 	// Collect resources for every conditional area resolved up the parent
 	// chain (not just this style's own), so a parent style's conditional
