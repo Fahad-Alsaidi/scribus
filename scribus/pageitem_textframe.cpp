@@ -380,6 +380,7 @@ struct LineControl {
 	double   leftIndent { 0.0 };
 	double   rightIndent { 0.0 };
 	double   rightMargin { 0.0 };
+	double   numOverflow { 0.0 };
 	double   mustLineEnd { false };
 	int      restartIndex { 0 };  //index of glyph run where line computing should be restarted
 	int      restartRowIndex { 0 };  //index of glyph run where row of text is started
@@ -458,6 +459,7 @@ struct LineControl {
 		leftIndent = 0.0;
 		rightIndent = 0.0;
 		rightMargin = 0.0;
+		numOverflow = 0.0;
 		rowDesc = 0.0;
 	}
 
@@ -1789,18 +1791,18 @@ void PageItem_TextFrame::layout()
 										break;
 									effectWidth += glyph.width();
 								}
+								double suffixOffset = effectWidth; // default: Right (hang fully, existing behavior)
+								if (style.suffixAlignment() == ParagraphStyle::SuffixAlign_Left)
+									suffixOffset = 0.0;
+								else if (style.suffixAlignment() == ParagraphStyle::SuffixAlign_Center)
+									suffixOffset = effectWidth / 2.0;
 
-								// Left align (numbered lists only): number stays at fixed position, skip old math
-								bool useLeftAlign = style.hasNum() && (style.suffixAlignment() == ParagraphStyle::SuffixAlign_Left);
-
-								if (!useLeftAlign)
+								current.leftIndent -= style.parEffectOffset() + effectWidth;
+								if (current.leftIndent < 0.0)
 								{
-									current.leftIndent -= style.parEffectOffset() + effectWidth;
-									if (current.leftIndent < 0.0)
-									{
-										autoLeftIndent = abs(current.leftIndent);
-										current.leftIndent = 0.0;
-									}
+									autoLeftIndent = abs(current.leftIndent);
+									current.numOverflow = abs(current.leftIndent);
+									current.leftIndent = 0.0;
 								}
 							}
 						}
@@ -2368,7 +2370,7 @@ void PageItem_TextFrame::layout()
 			}
 			if ((DropCmode || BulNumMode) && !outs)
 			{
-				current.xPos += style.parEffectOffset();
+				current.xPos += style.parEffectOffset() + current.numOverflow;
 				// for bulleted lists, make sure offset is applied only after last bullet char
 				// for numbered lists, make sure that offset is applied only after the suffix
 				// loop over previous current.glyphs and set their extraWidth to 0.0
