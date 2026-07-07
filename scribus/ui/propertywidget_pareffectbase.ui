@@ -438,7 +438,7 @@
           </layout>
          </widget>
         </item>
-        <item>
+<item>
          <widget class="QLabel" name="suffixAlignmentLabel">
           <property name="text">
            <string>Suffix Align:</string>
