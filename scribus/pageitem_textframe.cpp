@@ -380,7 +380,6 @@ struct LineControl {
 	double   leftIndent { 0.0 };
 	double   rightIndent { 0.0 };
 	double   rightMargin { 0.0 };
-	double   numOverflow { 0.0 };
 	double   mustLineEnd { false };
 	int      restartIndex { 0 };  //index of glyph run where line computing should be restarted
 	int      restartRowIndex { 0 };  //index of glyph run where row of text is started
@@ -459,7 +458,6 @@ struct LineControl {
 		leftIndent = 0.0;
 		rightIndent = 0.0;
 		rightMargin = 0.0;
-		numOverflow = 0.0;
 		rowDesc = 0.0;
 	}
 
