@@ -29,7 +29,7 @@
    <item>
     <widget class="QTabWidget" name="tabWidget">
      <property name="currentIndex">
-      <number>0</number>
+      <number>1</number>
      </property>
      <widget class="QWidget" name="tab">
       <attribute name="title">
@@ -181,7 +181,7 @@
             <item>
              <layout class="QHBoxLayout" name="horizontalLayout_3" stretch="0,1">
               <item>
-               <widget class="FormWidget" name="consecutiveHyphenLabel">
+               <widget class="FormWidget" name="consecutiveHyphenLabel" native="true">
                 <property name="sizePolicy">
                  <sizepolicy hsizetype="Preferred" vsizetype="Minimum">
                   <horstretch>0</horstretch>
@@ -280,7 +280,7 @@ A value of 0 means unlimited hyphenations.</string>
              <number>4</number>
             </property>
             <item row="0" column="1">
-             <widget class="FormWidget" name="minSpaceLabel">
+             <widget class="FormWidget" name="minSpaceLabel" native="true">
               <property name="sizePolicy">
                <sizepolicy hsizetype="Preferred" vsizetype="Minimum">
                 <horstretch>0</horstretch>
@@ -326,7 +326,7 @@ A value of 0 means unlimited hyphenations.</string>
              </widget>
             </item>
             <item row="1" column="2">
-             <widget class="FormWidget" name="maxGlyphExtLabel">
+             <widget class="FormWidget" name="maxGlyphExtLabel" native="true">
               <property name="sizePolicy">
                <sizepolicy hsizetype="Preferred" vsizetype="Minimum">
                 <horstretch>0</horstretch>
@@ -379,7 +379,7 @@ A value of 0 means unlimited hyphenations.</string>
              </spacer>
             </item>
             <item row="0" column="0">
-             <widget class="FormWidget" name="formWidget_3">
+             <widget class="FormWidget" name="formWidget_3" native="true">
               <property name="sizePolicy">
                <sizepolicy hsizetype="Preferred" vsizetype="Minimum">
                 <horstretch>0</horstretch>
@@ -389,7 +389,7 @@ A value of 0 means unlimited hyphenations.</string>
               <property name="label" stdset="0">
                <string/>
               </property>
-              <property name="preserveLabelSpace">
+              <property name="preserveLabelSpace" stdset="0">
                <bool>true</bool>
               </property>
               <layout class="QHBoxLayout" name="horizontalLayout">
@@ -419,7 +419,7 @@ A value of 0 means unlimited hyphenations.</string>
              </widget>
             </item>
             <item row="1" column="1">
-             <widget class="FormWidget" name="minGlyphExtLabel">
+             <widget class="FormWidget" name="minGlyphExtLabel" native="true">
               <property name="sizePolicy">
                <sizepolicy hsizetype="Preferred" vsizetype="Minimum">
                 <horstretch>0</horstretch>
@@ -459,7 +459,7 @@ A value of 0 means unlimited hyphenations.</string>
              </widget>
             </item>
             <item row="1" column="0">
-             <widget class="FormWidget" name="formWidget_4">
+             <widget class="FormWidget" name="formWidget_4" native="true">
               <property name="sizePolicy">
                <sizepolicy hsizetype="Preferred" vsizetype="Minimum">
                 <horstretch>0</horstretch>
@@ -469,7 +469,7 @@ A value of 0 means unlimited hyphenations.</string>
               <property name="label" stdset="0">
                <string/>
               </property>
-              <property name="preserveLabelSpace">
+              <property name="preserveLabelSpace" stdset="0">
                <bool>true</bool>
               </property>
               <layout class="QHBoxLayout" name="horizontalLayout_2">
@@ -597,7 +597,7 @@ A value of 0 means unlimited hyphenations.</string>
                <number>16</number>
               </property>
               <item>
-               <widget class="FormWidget" name="lineSpacingLabel">
+               <widget class="FormWidget" name="lineSpacingLabel" native="true">
                 <property name="sizePolicy">
                  <sizepolicy hsizetype="Preferred" vsizetype="Minimum">
                   <horstretch>0</horstretch>
@@ -673,7 +673,7 @@ A value of 0 means unlimited hyphenations.</string>
                <number>16</number>
               </property>
               <item>
-               <widget class="FormWidget" name="spaceAboveLabel">
+               <widget class="FormWidget" name="spaceAboveLabel" native="true">
                 <property name="sizePolicy">
                  <sizepolicy hsizetype="Preferred" vsizetype="Minimum">
                   <horstretch>0</horstretch>
@@ -710,7 +710,7 @@ A value of 0 means unlimited hyphenations.</string>
                </widget>
               </item>
               <item>
-               <widget class="FormWidget" name="spaceBelowLabel">
+               <widget class="FormWidget" name="spaceBelowLabel" native="true">
                 <property name="sizePolicy">
                  <sizepolicy hsizetype="Preferred" vsizetype="Minimum">
                   <horstretch>0</horstretch>
@@ -804,7 +804,7 @@ A value of 0 means unlimited hyphenations.</string>
                <number>16</number>
               </property>
               <item>
-               <widget class="FormWidget" name="keepLabelStart">
+               <widget class="FormWidget" name="keepLabelStart" native="true">
                 <property name="sizePolicy">
                  <sizepolicy hsizetype="Preferred" vsizetype="Minimum">
                   <horstretch>0</horstretch>
@@ -844,7 +844,7 @@ A value of 0 means unlimited hyphenations.</string>
                </widget>
               </item>
               <item>
-               <widget class="FormWidget" name="keepLabelEnd">
+               <widget class="FormWidget" name="keepLabelEnd" native="true">
                 <property name="sizePolicy">
                  <sizepolicy hsizetype="Preferred" vsizetype="Minimum">
                   <horstretch>0</horstretch>
@@ -1021,7 +1021,7 @@ A value of 0 means unlimited hyphenations.</string>
        <item>
         <layout class="QHBoxLayout" name="horizontalLayout_20">
          <item>
-          <widget class="FormWidget" name="peLabel">
+          <widget class="FormWidget" name="peLabel" native="true">
            <property name="sizePolicy">
             <sizepolicy hsizetype="Preferred" vsizetype="Minimum">
              <horstretch>0</horstretch>
@@ -1441,7 +1441,7 @@ A value of 0 means unlimited hyphenations.</string>
               </widget>
              </item>
              <item row="0" column="6">
-              <widget class="FormWidget" name="formWidget_2">
+              <widget class="FormWidget" name="formWidget_2" native="true">
                <property name="sizePolicy">
                 <sizepolicy hsizetype="Preferred" vsizetype="Minimum">
                  <horstretch>0</horstretch>
@@ -1451,10 +1451,7 @@ A value of 0 means unlimited hyphenations.</string>
                <property name="label" stdset="0">
                 <string>New Set:</string>
                </property>
-               <property name="direction">
-                <enum>FormWidget::LabelPosition::Left</enum>
-               </property>
-               <property name="useSmallFont">
+               <property name="useSmallFont" stdset="0">
                 <bool>false</bool>
                </property>
                <layout class="QHBoxLayout" name="horizontalLayout_25">
@@ -1474,6 +1471,20 @@ A value of 0 means unlimited hyphenations.</string>
                  <widget class="QLineEdit" name="numNewLineEdit"/>
                 </item>
                </layout>
+              </widget>
+             </item>
+             <item row="3" column="6">
+              <widget class="SMScComboBox" name="suffixAlignmentCombo">
+               <property name="toolTip">
+                <string>Alignment of suffix characters in numbered lists</string>
+               </property>
+              </widget>
+             </item>
+             <item row="3" column="5">
+              <widget class="QLabel" name="suffixAlignmentLabel">
+               <property name="text">
+                <string>Suffix Align:</string>
+               </property>
               </widget>
              </item>
             </layout>
@@ -1506,7 +1517,7 @@ A value of 0 means unlimited hyphenations.</string>
              <number>16</number>
             </property>
             <item>
-             <widget class="FormWidget" name="distFromTextLabel">
+             <widget class="FormWidget" name="distFromTextLabel" native="true">
               <property name="sizePolicy">
                <sizepolicy hsizetype="Preferred" vsizetype="Minimum">
                 <horstretch>0</horstretch>
@@ -1546,46 +1557,6 @@ A value of 0 means unlimited hyphenations.</string>
              </widget>
             </item>
             <item>
-             <widget class="FormWidget" name="formWidget">
-              <property name="sizePolicy">
-               <sizepolicy hsizetype="Preferred" vsizetype="Minimum">
-                <horstretch>0</horstretch>
-                <verstretch>0</verstretch>
-               </sizepolicy>
-              </property>
-              <property name="label" stdset="0">
-               <string/>
-              </property>
-              <property name="preserveLabelSpace">
-               <bool>true</bool>
-              </property>
-              <layout class="QHBoxLayout" name="horizontalLayout_24">
-               <property name="leftMargin">
-                <number>0</number>
-               </property>
-               <property name="topMargin">
-                <number>0</number>
-               </property>
-               <property name="rightMargin">
-                <number>0</number>
-               </property>
-               <property name="bottomMargin">
-                <number>0</number>
-               </property>
-               <item>
-                <widget class="SMCheckBox" name="parEffectIndentBox">
-                 <property name="toolTip">
-                  <string>Hang Paragraph Effect before paragraph indent</string>
-                 </property>
-                 <property name="text">
-                  <string>Auto-Indent</string>
-                 </property>
-                </widget>
-               </item>
-              </layout>
-             </widget>
-            </item>
-            <item>
              <spacer name="horizontalSpacer_14">
               <property name="orientation">
                <enum>Qt::Orientation::Horizontal</enum>
@@ -1606,7 +1577,7 @@ A value of 0 means unlimited hyphenations.</string>
              <number>16</number>
             </property>
             <item>
-             <widget class="FormWidget" name="parEffectCharStyleComboLabel">
+             <widget class="FormWidget" name="parEffectCharStyleComboLabel" native="true">
               <property name="sizePolicy">
                <sizepolicy hsizetype="Preferred" vsizetype="Minimum">
                 <horstretch>0</horstretch>
@@ -1792,7 +1763,6 @@ A value of 0 means unlimited hyphenations.</string>
   <tabstop>parentParEffectsButton</tabstop>
   <tabstop>dropCapLines</tabstop>
   <tabstop>parEffectOffset</tabstop>
-  <tabstop>parEffectIndentBox</tabstop>
   <tabstop>parEffectCharStyleCombo</tabstop>
   <tabstop>numPrefix</tabstop>
   <tabstop>numSuffix</tabstop>

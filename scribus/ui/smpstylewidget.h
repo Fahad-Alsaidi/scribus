@@ -52,6 +52,7 @@ private:
 	void fillNumerationsCombo();
 	void fillNumRestartCombo();
 	void fillPECombo();
+	void fillSuffixAlignmentCombo();
 	void setParagraphEffect(int);
 	void showColors(const QList<ParagraphStyle*> &cstyles);
 	void showLineSpacing(const QList<ParagraphStyle*> &pstyles);

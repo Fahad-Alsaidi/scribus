@@ -511,6 +511,7 @@ void SMParagraphStyle::setupConnections()
 	connect(m_pwidget->peCombo, SIGNAL(currentIndexChanged(int)), this, SLOT(slotPargraphEffects(int)));
 	connect(m_pwidget->dropCapLines, SIGNAL(valueChanged(int)), this, SLOT(slotDropCapLines(int)));
 	connect(m_pwidget->parEffectOffset, SIGNAL(valueChanged(double)), this, SLOT(slotParEffectOffset()));
+	connect(m_pwidget->suffixAlignmentCombo, SIGNAL(activated(int)), this, SLOT(slotSuffixAlignment(int)));
 	connect(m_pwidget->parEffectCharStyleCombo, SIGNAL(activated(int)), this, SLOT(slotParEffectCharStyle(int)));
 	connect(m_pwidget->bulletStrEdit, SIGNAL(editTextChanged(QString)), this, SLOT(slotBulletStr(QString)));
 	connect(m_pwidget->numComboBox, SIGNAL(textActivated(QString)), this, SLOT(slotNumName(QString)));
@@ -605,6 +606,7 @@ void SMParagraphStyle::removeConnections()
 	disconnect(m_pwidget->peCombo, SIGNAL(currentIndexChanged(int)), this, SLOT(slotPargraphEffects(int)));
 	disconnect(m_pwidget->dropCapLines, SIGNAL(valueChanged(int)), this, SLOT(slotDropCapLines(int)));
 	disconnect(m_pwidget->parEffectOffset, SIGNAL(valueChanged(double)), this, SLOT(slotParEffectOffset()));
+	disconnect(m_pwidget->suffixAlignmentCombo, SIGNAL(activated(int)), this, SLOT(slotSuffixAlignment(int)));
 	disconnect(m_pwidget->bulletStrEdit, SIGNAL(editTextChanged(QString)), this, SLOT(slotBulletStr(QString)));
 	disconnect(m_pwidget->numComboBox, SIGNAL(textActivated(QString)), this, SLOT(slotNumName(QString)));
 	disconnect(m_pwidget->numFormatCombo, SIGNAL(activated(int)), this, SLOT(slotNumFormat(int)));
@@ -944,6 +946,23 @@ void SMParagraphStyle::slotParEffectOffset()
 			m_selection[i]->setParEffectOffset(value);
 	}
 	
+	slotSelectionDirty();
+}
+
+void SMParagraphStyle::slotSuffixAlignment(int index)
+{
+	if (m_pwidget->suffixAlignmentCombo->useParentValue())
+	{
+		for (int i = 0; i < m_selection.count(); ++i)
+			m_selection[i]->resetSuffixAlignment();
+	}
+	else
+	{
+		auto align = static_cast<ParagraphStyle::SuffixAlignment>(m_pwidget->suffixAlignmentCombo->itemData(index).toInt());
+		for (int i = 0; i < m_selection.count(); ++i)
+			m_selection[i]->setSuffixAlignment(align);
+	}
+
 	slotSelectionDirty();
 }
 
