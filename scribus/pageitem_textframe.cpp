@@ -1828,12 +1828,12 @@ void PageItem_TextFrame::layout()
 							{
 								current.leftIndent = abs(style.parEffectOffset() + (effectWidth - maxParEffectWidth));
 							}
-							else if (style.suffixAlignment() == ParagraphStyle::SuffixAlign_Center)
+							if (style.suffixAlignment() == ParagraphStyle::SuffixAlign_Center)
 							{
-								qWarning() << "current.leftIndent (before)" << current.leftIndent
-										   << "maxParEffectWidth" << maxParEffectWidth
-										   << "(maxParEffectWidth/2)" << (maxParEffectWidth/2);
-								current.leftIndent = style.parEffectOffset() + (maxParEffectWidth/2);
+								double centerGap = (maxParEffectWidth - effectWidth) / 2.0;
+
+								current.leftIndent -= style.parEffectOffset() + centerGap;
+
 							}
 						}
 					}
