@@ -4708,13 +4708,13 @@ void PageItem::moveUndoAction()
 
 void PageItem::resizeUndoAction()
 {
-	if (oldHeight == m_height && oldWidth == m_width)
+	if (qFuzzyCompare(oldHeight, m_height) && qFuzzyCompare(oldWidth, m_width))
 		return;
 	bool doUndo = true;
 	if (isNoteFrame()
 		&& ((asNoteFrame()->isAutoHeight() && asNoteFrame()->isAutoWidth())
-			|| ((oldHeight == m_height) && asNoteFrame()->isAutoWidth())
-			|| ((oldWidth == m_width) && asNoteFrame()->isAutoHeight())))
+			|| (qFuzzyCompare(oldHeight, m_height) && asNoteFrame()->isAutoWidth())
+			|| (qFuzzyCompare(oldWidth, m_width) && asNoteFrame()->isAutoHeight())))
 		doUndo = false;
 	if (doUndo && UndoManager::undoEnabled())
 	{
