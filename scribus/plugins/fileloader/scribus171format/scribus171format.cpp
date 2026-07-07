@@ -3635,10 +3635,6 @@ void Scribus171Format::readParagraphStyle(ScribusDoc *doc, ScXmlStreamReader& re
 	if (attrs.hasAttribute(ParagraphEffectOffset))
 		newStyle.setParEffectOffset(attrs.valueAsDouble(ParagraphEffectOffset));
 
-	static const QString ParagraphEffectIndent("ParagraphEffectIndent");
-	if (attrs.hasAttribute(ParagraphEffectIndent))
-		newStyle.setParEffectIndent(attrs.valueAsDouble(ParagraphEffectIndent));
-
 	//Remove uppercase in 1.8 format
 	if (attrs.hasAttribute("DROP"))
 		newStyle.setHasDropCap(static_cast<bool>(attrs.valueAsInt("DROP")));
@@ -6683,8 +6679,6 @@ PageItem* Scribus171Format::pasteItem(ScribusDoc *doc, const ScXmlStreamAttribut
 		pstyle.setPeCharStyleName(attrs.valueAsString("ParagraphEffectCharStyle"));
 	if (attrs.hasAttribute("ParagraphEffectOffset"))
 		pstyle.setParEffectOffset(attrs.valueAsDouble("ParagraphEffectOffset"));
-	if (attrs.hasAttribute("ParagraphEffectIndent"))
-		pstyle.setParEffectIndent(attrs.valueAsDouble("ParagraphEffectIndent"));
 	//Remove uppercase in 1.8
 	if (attrs.hasAttribute("DROP"))
 		pstyle.setHasDropCap(static_cast<bool>(attrs.valueAsInt("DROP")));

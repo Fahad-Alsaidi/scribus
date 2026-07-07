@@ -844,8 +844,6 @@ void Scribus170Format::putPStyle(ScXmlStreamWriter & docu, const ParagraphStyle 
 		docu.writeAttribute("ParagraphEffectCharStyle", style.peCharStyleName());
 	if (!style.isInhParEffectOffset())
 		docu.writeAttribute("ParagraphEffectOffset", style.parEffectOffset());
-	if (!style.isInhParEffectIndent())
-		docu.writeAttribute("ParagraphEffectIndent", static_cast<int>(style.parEffectIndent()));
 	if (!style.isInhHasDropCap())
 		docu.writeAttribute("DROP", static_cast<int>(style.hasDropCap()));
 	if (!style.isInhDropCapLines())

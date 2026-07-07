@@ -302,8 +302,6 @@ void SMPStyleWidget::show(ParagraphStyle *pstyle, QList<ParagraphStyle> &pstyles
 
 		parEffectOffset->setValue(pstyle->parEffectOffset() * unitRatio, pstyle->isInhParEffectOffset());
 		parEffectOffset->setParentValue(parent->parEffectOffset() * unitRatio);
-		parEffectIndentBox->setChecked(pstyle->parEffectIndent(),pstyle->isInhParEffectIndent());
-		parEffectIndentBox->setParentValue(parent->parEffectIndent());
 		dropCapLines->setValue(pstyle->dropCapLines(), pstyle->isInhDropCapLines());
 		dropCapLines->setParentValue(parent->dropCapLines());
 		bulletStrEdit->setEditText(pstyle->bulletStr());
@@ -355,10 +353,6 @@ void SMPStyleWidget::show(ParagraphStyle *pstyle, QList<ParagraphStyle> &pstyles
 		maxGlyphExtSpin->setValue(pstyle->maxGlyphExtension() * 100.0);
 		maxConsecutiveCountSpinBox->setValue(pstyle->hyphenConsecutiveLines());
 		parEffectOffset->setValue(pstyle->parEffectOffset() * unitRatio);
-		parEffectIndentBox->setChecked(pstyle->parEffectIndent());
-		parentParEffectsButton->hide();
-		disconnect(parentParEffectsButton, SIGNAL(clicked()), this, SLOT(slotParentParEffects()));
-
 		dropCapLines->setValue(pstyle->dropCapLines());
 		bulletStrEdit->setEditText(pstyle->bulletStr());
 		setWidgetBoldFont(bulletCharLabel, false);

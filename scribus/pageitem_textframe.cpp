@@ -1392,11 +1392,11 @@ void PageItem_TextFrame::layout()
 		double maxYAsc = 0.0, maxYDesc = 0.0;
 		int regionMinY = 0, regionMaxY= 0;
 
-		double autoLeftIndent = 0.0;
+		// double autoLeftIndent = 0.0;
 
-		double globalMaxParEffectWidth = 0.0;
+		double maxParEffectWidth = 0.0;
 
-		// Pre-pass: fully populate glyphClusters and compute globalMaxParEffectWidth
+		// Pre-pass: fully populate glyphClusters and compute maxParEffectWidth
 		{
 			for (int j = 0; shapedText.haveMoreText(j, glyphClusters); ++j)
 				;
@@ -1409,7 +1409,7 @@ void PageItem_TextFrame::layout()
 				{
 					prevA = a;
 					const ParagraphStyle& pStyle = itemText.paragraphStyle(a);
-					if ((pStyle.hasBullet() || pStyle.hasNum()) && pStyle.parEffectIndent())
+					if (pStyle.hasBullet() || pStyle.hasNum())
 					{
 						double effectWidth = 0.0;
 						for (int k = j; k < glyphClusters.count(); ++k)
@@ -1420,8 +1420,8 @@ void PageItem_TextFrame::layout()
 							effectWidth += glyph.width();
 						}
 						double totalWidth = pStyle.parEffectOffset() + effectWidth;
-						if (totalWidth > globalMaxParEffectWidth)
-							globalMaxParEffectWidth = totalWidth;
+						if (totalWidth > maxParEffectWidth)
+							maxParEffectWidth = totalWidth;
 					}
 				}
 			}
@@ -1460,16 +1460,16 @@ void PageItem_TextFrame::layout()
 			BulNumMode = false;
 			if (itemText.isBlockStart(a))
 			{
-				if (currentIndex > 0)
-				{
-					int prevA = current.glyphs[currentIndex - 1].firstChar();
-					if (a != prevA)
-						autoLeftIndent = 0.0;
-				}
-				else
-				{
-					autoLeftIndent = 0.0;
-				}
+				// if (currentIndex > 0)
+				// {
+				// 	int prevA = current.glyphs[currentIndex - 1].firstChar();
+				// 	// if (a != prevA)
+				// 	// 	autoLeftIndent = 0.0;
+				// }
+				// else
+				// {
+				// 	autoLeftIndent = 0.0;
+				// }
 				style = itemText.paragraphStyle(a);
 				if (style.hasBullet() || style.hasNum())
 				{
@@ -1802,7 +1802,7 @@ void PageItem_TextFrame::layout()
 				current.leftIndent = 0.0;
 				if (current.addLeftIndent && ((maxDX == 0) || DropCmode || BulNumMode))
 				{
-					current.leftIndent = style.leftMargin() + autoLeftIndent;
+					current.leftIndent = style.leftMargin();
 					if (itemText.isBlockStart(a))
 					{
 						if (style.direction() == ParagraphStyle::RTL)
@@ -1816,21 +1816,24 @@ void PageItem_TextFrame::layout()
 							current.leftIndent += style.firstIndent();
 						if (BulNumMode || DropCmode)
 						{
-							if (style.parEffectIndent())
+							double effectWidth = 0.0;
+							for (int j = i; shapedText.haveMoreText(j, glyphClusters); ++j)
 							{
-								double effectWidth = 0.0;
-								for (int j = i; shapedText.haveMoreText(j, glyphClusters); ++j)
-								{
-									const auto& glyph = glyphClusters[j];
-									if (glyph.firstChar() != a)
-										break;
-									effectWidth += glyph.width();
-								}
-								current.leftIndent = style.parEffectOffset() + (effectWidth - globalMaxParEffectWidth);
-								if (current.leftIndent < 0.0)
-								{
-									current.leftIndent = abs(current.leftIndent);
-								}
+								const auto& glyph = glyphClusters[j];
+								if (glyph.firstChar() != a)
+									break;
+								effectWidth += glyph.width();
+							}
+							if ((style.suffixAlignment() == ParagraphStyle::SuffixAlign_Right))
+							{
+								current.leftIndent = abs(style.parEffectOffset() + (effectWidth - maxParEffectWidth));
+							}
+							else if (style.suffixAlignment() == ParagraphStyle::SuffixAlign_Center)
+							{
+								qWarning() << "current.leftIndent (before)" << current.leftIndent
+										   << "maxParEffectWidth" << maxParEffectWidth
+										   << "(maxParEffectWidth/2)" << (maxParEffectWidth/2);
+								current.leftIndent = style.parEffectOffset() + (maxParEffectWidth/2);
 							}
 						}
 					}

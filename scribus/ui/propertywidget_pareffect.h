@@ -66,7 +66,6 @@ public slots:
 	void handleNumSuffix(const QString&);
 	void handleNumStart(int);
 	void handlePEOffset(double);
-	void handlePEIndent(bool);
 	void handleSuffixAlignment(int);
 	void handlePECharStyle(const QString&);
 
