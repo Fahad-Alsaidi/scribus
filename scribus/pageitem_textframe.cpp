@@ -1393,6 +1393,41 @@ void PageItem_TextFrame::layout()
 		int regionMinY = 0, regionMaxY= 0;
 
 		double autoLeftIndent = 0.0;
+
+		double globalMaxParEffectWidth = 0.0;
+
+		// Pre-pass: fully populate glyphClusters and compute globalMaxParEffectWidth
+		{
+			for (int j = 0; shapedText.haveMoreText(j, glyphClusters); ++j)
+				;
+
+			int prevA = -1;
+			for (int j = 0; j < glyphClusters.count(); ++j)
+			{
+				int a = glyphClusters[j].firstChar();
+				if (itemText.isBlockStart(a) && a != prevA)
+				{
+					prevA = a;
+					const ParagraphStyle& pStyle = itemText.paragraphStyle(a);
+					if ((pStyle.hasBullet() || pStyle.hasNum()) && pStyle.parEffectIndent())
+					{
+						double effectWidth = 0.0;
+						for (int k = j; k < glyphClusters.count(); ++k)
+						{
+							const auto& glyph = glyphClusters[k];
+							if (glyph.firstChar() != a)
+								break;
+							effectWidth += glyph.width();
+						}
+						double totalWidth = pStyle.parEffectOffset() + effectWidth;
+						if (totalWidth > globalMaxParEffectWidth)
+							globalMaxParEffectWidth = totalWidth;
+					}
+				}
+			}
+		}
+
+
 		for (int i = 0; shapedText.haveMoreText(i, glyphClusters); ++i)
 		{
 			int currentIndex = i - current.lineData.firstCluster;
@@ -1791,18 +1826,10 @@ void PageItem_TextFrame::layout()
 										break;
 									effectWidth += glyph.width();
 								}
-								double suffixOffset = effectWidth; // default: Right (hang fully, existing behavior)
-								if (style.suffixAlignment() == ParagraphStyle::SuffixAlign_Left)
-									suffixOffset = 0.0;
-								else if (style.suffixAlignment() == ParagraphStyle::SuffixAlign_Center)
-									suffixOffset = effectWidth / 2.0;
-
-								current.leftIndent -= style.parEffectOffset() + effectWidth;
+								current.leftIndent = style.parEffectOffset() + (effectWidth - globalMaxParEffectWidth);
 								if (current.leftIndent < 0.0)
 								{
-									autoLeftIndent = abs(current.leftIndent);
-									current.numOverflow = abs(current.leftIndent);
-									current.leftIndent = 0.0;
+									current.leftIndent = abs(current.leftIndent);
 								}
 							}
 						}
@@ -2370,7 +2397,7 @@ void PageItem_TextFrame::layout()
 			}
 			if ((DropCmode || BulNumMode) && !outs)
 			{
-				current.xPos += style.parEffectOffset() + current.numOverflow;
+				current.xPos += style.parEffectOffset();
 				// for bulleted lists, make sure offset is applied only after last bullet char
 				// for numbered lists, make sure that offset is applied only after the suffix
 				// loop over previous current.glyphs and set their extraWidth to 0.0
