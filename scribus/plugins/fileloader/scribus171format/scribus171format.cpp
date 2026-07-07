@@ -8907,7 +8907,7 @@ void Scribus171Format::getStyle(ParagraphStyle& style, ScXmlStreamReader& reader
 
 void Scribus171Format::getStyle(CharStyle& style, ScXmlStreamReader& reader, StyleSet<CharStyle> *tempStyles, ScribusDoc* doc, bool equiv)
 {
-	bool  found(false);
+	bool found(false);
 	const StyleSet<CharStyle> &docCharStyles = tempStyles ? *tempStyles : doc->charStyles();
 	
 	style.erase();
@@ -8952,13 +8952,13 @@ void Scribus171Format::getStyle(CharStyle& style, ScXmlStreamReader& reader, Sty
 
 bool Scribus171Format::readStyles(const QString& fileName, ScribusDoc* doc, StyleSet<ParagraphStyle> &docParagraphStyles)
 {
-	ParagraphStyle pstyle;
-	bool firstElement = true;
-	bool success = true;
-
 	QScopedPointer<QIODevice> ioDevice(slaReader(fileName));
 	if (ioDevice.isNull())
 		return false;
+
+	ParagraphStyle pstyle;
+	bool firstElement = true;
+	bool success = true;
 
 	parStyleMap.clear();
 	charStyleMap.clear();
@@ -8993,13 +8993,13 @@ bool Scribus171Format::readStyles(const QString& fileName, ScribusDoc* doc, Styl
 
 bool Scribus171Format::readCharStyles(const QString& fileName, ScribusDoc* doc, StyleSet<CharStyle> &docCharStyles)
 {
-	CharStyle cstyle;
-	bool firstElement = true;
-	//bool success = true;
-
 	QScopedPointer<QIODevice> ioDevice(slaReader(fileName));
 	if (ioDevice.isNull())
 		return false;
+
+	CharStyle cstyle;
+	bool firstElement = true;
+	//bool success = true;
 
 	parStyleMap.clear();
 	charStyleMap.clear();
@@ -9036,12 +9036,12 @@ bool Scribus171Format::readCharStyles(const QString& fileName, ScribusDoc* doc, 
 
 bool Scribus171Format::readLineStyles(const QString& fileName, QHash<QString, MultiLine> *styles)
 {
-	bool firstElement = true;
-	bool success = true;
-
 	QScopedPointer<QIODevice> ioDevice(slaReader(fileName));
 	if (ioDevice.isNull())
 		return false;
+
+	bool firstElement = true;
+	bool success = true;
 
 	ScXmlStreamReader reader(ioDevice.data());
 	ScXmlStreamAttributes attrs;
@@ -9084,14 +9084,74 @@ bool Scribus171Format::readLineStyles(const QString& fileName, QHash<QString, Mu
 	return success;
 }
 
-bool Scribus171Format::readColors(const QString& fileName, ColorList & colors)
+bool Scribus171Format::readTableStyles(const QString& fileName, ScribusDoc* doc, StyleSet<TableStyle> &docTableStyles)
 {
-	bool firstElement = true;
-	bool success = true;
-
 	QScopedPointer<QIODevice> ioDevice(slaReader(fileName));
 	if (ioDevice.isNull())
 		return false;
+
+	bool firstElement = true;
+	ScXmlStreamReader reader(ioDevice.data());
+	while (!reader.atEnd() && !reader.hasError())
+	{
+		if (reader.readNext() != QXmlStreamReader::StartElement)
+			continue;
+		QString tagName(reader.nameAsString());
+		if (firstElement)
+		{
+			if (tagName != QLatin1String("SCRIBUSUTF8NEW"))
+				return false;
+			firstElement = false;
+			continue;
+		}
+		if (tagName == QLatin1String("TableStyle"))
+		{
+			TableStyle tstyle;
+			readTableStyle(doc, reader, tstyle);
+			docTableStyles.create(tstyle);
+		}
+	}
+	return true;
+}
+
+bool Scribus171Format::readCellStyles(const QString& fileName, ScribusDoc* doc, StyleSet<CellStyle> &docCellStyles)
+{
+	QScopedPointer<QIODevice> ioDevice(slaReader(fileName));
+	if (ioDevice.isNull())
+		return false;
+
+	bool firstElement = true;
+	ScXmlStreamReader reader(ioDevice.data());
+	while (!reader.atEnd() && !reader.hasError())
+	{
+		if (reader.readNext() != QXmlStreamReader::StartElement)
+			continue;
+		QString tagName(reader.nameAsString());
+		if (firstElement)
+		{
+			if (tagName != QLatin1String("SCRIBUSUTF8NEW"))
+				return false;
+			firstElement = false;
+			continue;
+		}
+		if (tagName == QLatin1String("CellStyle"))
+		{
+			CellStyle cstyle;
+			readCellStyle(doc, reader, cstyle);
+			docCellStyles.create(cstyle);
+		}
+	}
+	return true;
+}
+
+bool Scribus171Format::readColors(const QString& fileName, ColorList & colors)
+{
+	QScopedPointer<QIODevice> ioDevice(slaReader(fileName));
+	if (ioDevice.isNull())
+		return false;
+
+	bool firstElement = true;
+	bool success = true;
 
 	ScXmlStreamReader reader(ioDevice.data());
 	ScXmlStreamAttributes attrs;

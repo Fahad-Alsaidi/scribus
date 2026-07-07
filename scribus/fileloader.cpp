@@ -324,6 +324,28 @@ bool FileLoader::readLineStyles(QHash<QString, MultiLine> *Sty)
 	return false;
 }
 
+bool FileLoader::readTableStyles(ScribusDoc* doc, StyleSet<TableStyle> &docTableStyles)
+{
+	QList<FileFormat>::const_iterator it;
+	if (findFormat(m_fileType, it))
+	{
+		it->plug->setupTargets(doc, nullptr, doc->scMW(), doc->scMW()->mainWindowProgressBar, &(m_prefsManager.appPrefs.fontPrefs.AvailFonts));
+		return it->readTableStyles(m_fileName, doc, docTableStyles);
+	}
+	return false;
+}
+
+bool FileLoader::readCellStyles(ScribusDoc* doc, StyleSet<CellStyle> &docCellStyles)
+{
+	QList<FileFormat>::const_iterator it;
+	if (findFormat(m_fileType, it))
+	{
+		it->plug->setupTargets(doc, nullptr, doc->scMW(), doc->scMW()->mainWindowProgressBar, &(m_prefsManager.appPrefs.fontPrefs.AvailFonts));
+		return it->readCellStyles(m_fileName, doc, docCellStyles);
+	}
+	return false;
+}
+
 void FileLoader::readParagraphStyle(ParagraphStyle& vg, const QDomElement& pg, SCFonts &avail, ScribusDoc *currDoc)
 {
 	vg.setName(pg.attribute("NAME"));

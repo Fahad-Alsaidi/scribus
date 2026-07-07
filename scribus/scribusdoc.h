@@ -703,10 +703,14 @@ class SCRIBUS_API ScribusDoc : public QObject, public UndoObject, public Observa
 		 * @param tempStyles A pointer to a StyleSet which will be filled by paragraph styles
 		 * @param tempCharStyles A pointer to a StyleSet which will be filled by character styles
 		 * @param tempLineStyles A map which will be filled by line styles
+		 * @param tempTableStyles A pointer to a StyleSet which will be filled by table styles
+		 * @param tempCellStyles A pointer to a StyleSet which will be filled by cell styles
 		 */
 		void loadStylesFromFile(const QString& fileName, StyleSet<ParagraphStyle> *tempStyles,
 								StyleSet<CharStyle> *tempCharStyles,
-								QHash<QString, MultiLine> *tempLineStyles);
+								QHash<QString, MultiLine> *tempLineStyles,
+								StyleSet<TableStyle> *tempTableStyles = nullptr,
+								StyleSet<CellStyle> *tempCellStyles = nullptr);
 
 		const CharStyle& charStyle(const QString& name) const { return m_docCharStyles.get(name); }
 		const StyleSet<CharStyle>& charStyles() const { return m_docCharStyles; }

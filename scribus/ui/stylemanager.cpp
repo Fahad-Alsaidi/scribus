@@ -637,8 +637,10 @@ void StyleManager::slotImport()
 	StyleSet<ParagraphStyle> tmpParaStyles;
 	StyleSet<CharStyle> tmpCharStyles;
 	QHash<QString, MultiLine> tmpLineStyles;
+	StyleSet<TableStyle> tmpTableStyles;
+	StyleSet<CellStyle> tmpCellStyles;
 
-	m_doc->loadStylesFromFile(selectedFile, &tmpParaStyles, &tmpCharStyles, &tmpLineStyles);
+	m_doc->loadStylesFromFile(selectedFile, &tmpParaStyles, &tmpCharStyles, &tmpLineStyles, &tmpTableStyles, &tmpCellStyles);
 
 // FIXME Once all styles are derived from Style remove this and make a proper
 //       implementation
@@ -666,9 +668,24 @@ void StyleManager::slotImport()
 			break;
 	}
 
-	Q_ASSERT(pstyle && cstyle && lstyle);
+	SMTableStyle *tstyle = nullptr;
+	SMCellStyle  *cellstyle = nullptr;
+	for (int i = 0; i < m_items.count(); ++i)
+	{
+		tstyle = qobject_cast<SMTableStyle*>(m_items.at(i));
+		if (tstyle)
+			break;
+	}
+	for (int i = 0; i < m_items.count(); ++i)
+	{
+		cellstyle = qobject_cast<SMCellStyle*>(m_items.at(i));
+		if (cellstyle)
+			break;
+	}
 
-	SMStyleImport *dia2 = new SMStyleImport(this, &tmpParaStyles, &tmpCharStyles, &tmpLineStyles);
+	Q_ASSERT(pstyle && cstyle && lstyle && tstyle && cellstyle);
+
+	SMStyleImport *dia2 = new SMStyleImport(this, &tmpParaStyles, &tmpCharStyles, &tmpLineStyles, &tmpTableStyles, &tmpCellStyles);
 // end hack
 
 //#7315 		QList<QPair<QString, QString> > selected;
@@ -747,6 +764,63 @@ void StyleManager::slotImport()
 			}
 		}
 
+		foreach (const QString& aStyle, dia2->tableStyles())
+		{
+			TableStyle& sty(tmpTableStyles[tmpTableStyles.find(aStyle)]);
+			if (dia2->clashRename())
+			{
+				sty.setName(tstyle->getUniqueName(sty.name()));
+				tstyle->tmpStyles()->create(sty);
+			}
+			else
+			{
+				if (tstyle->tmpStyles()->find(sty.name()) >= 0)
+					(*(tstyle->tmpStyles()))[tstyle->tmpStyles()->find(aStyle)] = sty;
+				else
+					tstyle->tmpStyles()->create(sty);
+			}
+			if ((!m_doc->PageColors.contains(sty.fillColor())) && (!neededColors.contains(sty.fillColor())))
+				neededColors.append(sty.fillColor());
+			for (const TableBorder& b : { sty.leftBorder(), sty.rightBorder(), sty.topBorder(), sty.bottomBorder() })
+				for (const TableBorderLine& l : b.borderLines())
+					if ((!m_doc->PageColors.contains(l.color())) && (!neededColors.contains(l.color())))
+						neededColors.append(l.color());
+			// Conditional (area) styles carry their own fills and borders.
+			for (const TableArea& area : sty.conditionalAreasResolved())
+			{
+				const CellStyle cs(sty.conditionalStyleResolved(area));
+				if ((!m_doc->PageColors.contains(cs.fillColor())) && (!neededColors.contains(cs.fillColor())))
+					neededColors.append(cs.fillColor());
+				for (const TableBorder& b : { cs.leftBorder(), cs.rightBorder(), cs.topBorder(), cs.bottomBorder() })
+					for (const TableBorderLine& l : b.borderLines())
+						if ((!m_doc->PageColors.contains(l.color())) && (!neededColors.contains(l.color())))
+							neededColors.append(l.color());
+			}
+		}
+
+		foreach (const QString& aStyle, dia2->cellStyles())
+		{
+			CellStyle& sty(tmpCellStyles[tmpCellStyles.find(aStyle)]);
+			if (dia2->clashRename())
+			{
+				sty.setName(cellstyle->getUniqueName(sty.name()));
+				cellstyle->tmpStyles()->create(sty);
+			}
+			else
+			{
+				if (cellstyle->tmpStyles()->find(sty.name()) >= 0)
+					(*(cellstyle->tmpStyles()))[cellstyle->tmpStyles()->find(aStyle)] = sty;
+				else
+					cellstyle->tmpStyles()->create(sty);
+			}
+			if ((!m_doc->PageColors.contains(sty.fillColor())) && (!neededColors.contains(sty.fillColor())))
+				neededColors.append(sty.fillColor());
+			for (const TableBorder& b : { sty.leftBorder(), sty.rightBorder(), sty.topBorder(), sty.bottomBorder() })
+				for (const TableBorderLine& l : b.borderLines())
+					if ((!m_doc->PageColors.contains(l.color())) && (!neededColors.contains(l.color())))
+						neededColors.append(l.color());
+		}
+
 		if (!neededColors.isEmpty())
 		{
 			FileLoader fl(selectedFile);
@@ -776,6 +850,8 @@ void StyleManager::slotImport()
 // Start hack part 2
 	pstyle->setCurrentDoc(m_doc);
 	cstyle->setCurrentDoc(m_doc);
+	tstyle->setCurrentDoc(m_doc);
+	cellstyle->setCurrentDoc(m_doc);
 // end hack part 2
 	reloadStyleView(false);
 //#7315 		setSelection(selected);

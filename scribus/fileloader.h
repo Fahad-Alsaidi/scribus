@@ -18,6 +18,8 @@ for which a new license (GPL+exception) is in place.
 #include "styles/styleset.h"
 #include "styles/paragraphstyle.h"
 #include "styles/charstyle.h"
+#include "styles/tablestyle.h"
+#include "styles/cellstyle.h"
 
 class QDomElement;
 class QProgressBar;
@@ -46,6 +48,8 @@ public:
 	bool readPageCount(int *num1, int *num2, QStringList & masterPageNames);
 	bool readColors(ColorList & colors);
 	bool readLineStyles(QHash<QString, MultiLine> *Sty);
+	bool readTableStyles(ScribusDoc* doc, StyleSet<TableStyle> &docTableStyles);
+	bool readCellStyles(ScribusDoc* doc, StyleSet<CellStyle> &docCellStyles);
 	QImage readThumbnail();
 	bool postLoad(ScribusDoc* currDoc);
  	void informReplacementFonts();

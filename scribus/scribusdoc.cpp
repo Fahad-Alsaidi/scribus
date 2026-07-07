@@ -1662,8 +1662,10 @@ void ScribusDoc::loadStylesFromFile(const QString& fileName)
 }
 
 void ScribusDoc::loadStylesFromFile(const QString& fileName, StyleSet<ParagraphStyle> *tempStyles,
-                                                      StyleSet<CharStyle> *tempCharStyles,
-													  QHash<QString, MultiLine> *tempLineStyles)
+									StyleSet<CharStyle> *tempCharStyles,
+									QHash<QString, MultiLine> *tempLineStyles,
+									StyleSet<TableStyle> *tempTableStyles,
+									StyleSet<CellStyle> *tempCellStyles)
 {
 	StyleSet<ParagraphStyle> *wrkStyles     = tempStyles;
 	StyleSet<CharStyle> *wrkCharStyles      = tempCharStyles;
@@ -1688,6 +1690,16 @@ void ScribusDoc::loadStylesFromFile(const QString& fileName, StyleSet<ParagraphS
 	}
 
 	if (!fl.readLineStyles(wrkLineStyles))
+	{
+		//TODO put in nice user warning
+	}
+
+	if (tempTableStyles && !fl.readTableStyles(this, *tempTableStyles))
+	{
+		//TODO put in nice user warning
+	}
+
+	if (tempCellStyles && !fl.readCellStyles(this, *tempCellStyles))
 	{
 		//TODO put in nice user warning
 	}
@@ -1731,6 +1743,44 @@ void ScribusDoc::loadStylesFromFile(const QString& fileName, StyleSet<ParagraphS
 					namesMap[(*wrkCharStyles)[i].name()] = (*wrkCharStyles)[i].name();
 			}
 			wrkCharStyles->rename(namesMap);
+		}
+	}
+	if (tempTableStyles)
+	{
+		for (int j(0) ; j < tempTableStyles->count() ; ++j)
+		{
+			if ((*tempTableStyles)[j].isDefaultStyle())
+			{
+				TableStyle& tblDefault((*tempTableStyles)[j]);
+				tblDefault.setDefaultStyle(false);
+				QMap<QString, QString> namesMap;
+				namesMap[tblDefault.name()] = importPrefix + tblDefault.name() + importSuffix;
+				for (int i(0) ; i < tempTableStyles->count() ; ++i)
+				{
+					if ((*tempTableStyles)[i] != tblDefault)
+						namesMap[(*tempTableStyles)[i].name()] = (*tempTableStyles)[i].name();
+				}
+				tempTableStyles->rename(namesMap);
+			}
+		}
+	}
+	if (tempCellStyles)
+	{
+		for (int j(0) ; j < tempCellStyles->count() ; ++j)
+		{
+			if ((*tempCellStyles)[j].isDefaultStyle())
+			{
+				CellStyle& cellDefault((*tempCellStyles)[j]);
+				cellDefault.setDefaultStyle(false);
+				QMap<QString, QString> namesMap;
+				namesMap[cellDefault.name()] = importPrefix + cellDefault.name() + importSuffix;
+				for (int i(0) ; i < tempCellStyles->count() ; ++i)
+				{
+					if ((*tempCellStyles)[i] != cellDefault)
+						namesMap[(*tempCellStyles)[i].name()] = (*tempCellStyles)[i].name();
+				}
+				tempCellStyles->rename(namesMap);
+			}
 		}
 	}
 }

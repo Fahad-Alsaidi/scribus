@@ -72,6 +72,8 @@ class PLUGIN_API Scribus171Format : public LoadSavePlugin
 		bool readStyles(const QString& fileName, ScribusDoc* doc, StyleSet<ParagraphStyle> &docParagraphStyles) override;
 		bool readCharStyles(const QString& fileName, ScribusDoc* doc, StyleSet<CharStyle> &docCharStyles) override;
 		bool readLineStyles(const QString& fileName, QHash<QString, MultiLine> *Sty) override;
+		bool readTableStyles(const QString& fileName, ScribusDoc* doc, StyleSet<TableStyle> &docTableStyles) override;
+		bool readCellStyles(const QString& fileName, ScribusDoc* doc, StyleSet<CellStyle> &docCellStyles) override;
 		bool readColors(const QString& fileName, ColorList & colors) override;
 		bool readPageCount(const QString& fileName, int *num1, int *num2, QStringList & masterPageNames) override;
 		void getReplacedFontData(bool & getNewReplacement, QMap<QString,QString> &getReplacedFonts, QList<ScFace> &getDummyScFaces) override;

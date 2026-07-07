@@ -62,7 +62,7 @@ public:
 	BaseStyle(const BaseStyle& o) : SaxIO(), m_isDefaultStyle(o.m_isDefaultStyle),m_name(o.m_name),
 		m_context(o.m_context), m_contextversion(o.m_contextversion), m_parent(o.m_parent), m_shortcut(o.m_shortcut) {} 
 	
-	virtual ~BaseStyle()                 {}
+	virtual ~BaseStyle() {}
 
 	
 	// this is an abstract class, so:

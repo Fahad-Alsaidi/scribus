@@ -411,6 +411,16 @@ bool LoadSavePlugin::readLineStyles(const QString& /*fileName*/, QHash<QString, 
 	return false;
 }
 
+bool LoadSavePlugin::readTableStyles(const QString& /*fileName*/, ScribusDoc* /*doc*/, StyleSet<TableStyle>& /*docTableStyles*/)
+{
+	return false;
+}
+
+bool LoadSavePlugin::readCellStyles(const QString& /*fileName*/, ScribusDoc* /*doc*/, StyleSet<CellStyle>& /*docCellStyles*/)
+{
+	return false;
+}
+
 bool LoadSavePlugin::readColors(const QString& /*fileName*/, ColorList & /*colors*/)
 {
 	return false;
@@ -540,6 +550,16 @@ bool FileFormat::readCharStyles(const QString& fileName, ScribusDoc* doc, StyleS
 bool FileFormat::readLineStyles(const QString& fileName, QHash<QString, MultiLine> *Sty) const
 {
 	return (plug && load) ? plug->readLineStyles(fileName, Sty) : false;
+}
+
+bool FileFormat::readTableStyles(const QString &fileName, ScribusDoc *doc, StyleSet<TableStyle> &s) const
+{
+	return (plug && load) ? plug->readTableStyles(fileName, doc, s) : false;
+}
+
+bool FileFormat::readCellStyles(const QString &fileName, ScribusDoc *doc, StyleSet<CellStyle> &s) const
+{
+	return (plug && load) ? plug->readCellStyles(fileName, doc, s) : false;
 }
 
 bool FileFormat::readColors(const QString& fileName, ColorList & colors) const

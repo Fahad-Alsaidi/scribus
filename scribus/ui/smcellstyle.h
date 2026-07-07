@@ -71,6 +71,8 @@ public:
 	void nameChanged(const QString &newName);
 	/// Reimplemented from StyleItem.
 	QString getUniqueName(const QString &name);
+	/// Editable cache of cell styles; committed to the document by apply().
+	StyleSet<CellStyle>* tmpStyles() { return &m_tmpStyles; }
 	/// Reimplemented from StyleItem.
 	void languageChange();
 	/// Reimplemented from StyleItem.
@@ -83,7 +85,7 @@ private:
 	QTabWidget *m_widget = nullptr;
 	SMCellStyleWidget *m_page = nullptr;
 	ScribusDoc *m_doc = nullptr;
-	StyleSet<CellStyle> m_cachedStyles;
+	StyleSet<CellStyle> m_tmpStyles;
 	QList<CellStyle*> m_selection;
 	QList<RemoveItem> m_deleted;
 	bool m_selectionIsDirty = false;

@@ -13,7 +13,9 @@ for which a new license (GPL+exception) is in place.
 SMStyleImport::SMStyleImport(QWidget* parent,
 							 StyleSet<ParagraphStyle> *pstyleList,
 							 StyleSet<CharStyle> *cstyleList,
-							 QHash<QString, MultiLine> *lstyleList)
+							 QHash<QString, MultiLine> *lstyleList,
+							 StyleSet<TableStyle> *tstyleList,
+							 StyleSet<CellStyle> *cellstyleList)
 	: QDialog(parent, Qt::WindowFlags())
 {
 	setupUi(this);
@@ -54,6 +56,34 @@ SMStyleImport::SMStyleImport(QWidget* parent,
 	}
 	styleWidget->expandItem(lstyleItem);
 
+	tstyleItem = new QTreeWidgetItem(styleWidget);
+	tstyleItem->setText(0, tr("Table Styles"));
+	for (int x = 0; x < tstyleList->count(); ++x)
+	{
+		TableStyle& vg ((*tstyleList)[x]);
+		if (!vg.hasName())
+			continue;
+		QCheckBox *box = new QCheckBox(vg.name());
+		box->setChecked(true);
+		QTreeWidgetItem *item = new QTreeWidgetItem(tstyleItem, tType);
+		styleWidget->setItemWidget(item, 0, box);
+	}
+	styleWidget->expandItem(tstyleItem);
+
+	cellstyleItem = new QTreeWidgetItem(styleWidget);
+	cellstyleItem->setText(0, tr("Cell Styles"));
+	for (int x = 0; x < cellstyleList->count(); ++x)
+	{
+		CellStyle& vg ((*cellstyleList)[x]);
+		if (!vg.hasName())
+			continue;
+		QCheckBox *box = new QCheckBox(vg.name());
+		box->setChecked(true);
+		QTreeWidgetItem *item = new QTreeWidgetItem(cellstyleItem, cellType);
+		styleWidget->setItemWidget(item, 0, box);
+	}
+	styleWidget->expandItem(cellstyleItem);
+
 	connect(importAllCheckBox, SIGNAL(clicked(bool)), this, SLOT(checkAll(bool)));
 }
 
@@ -75,6 +105,16 @@ QStringList SMStyleImport::characterStyles()
 QStringList SMStyleImport::lineStyles()
 {
 	return commonStyles(lstyleItem, lType);
+}
+
+QStringList SMStyleImport::tableStyles()
+{
+	return commonStyles(tstyleItem, tType);
+}
+
+QStringList SMStyleImport::cellStyles()
+{
+	return commonStyles(cellstyleItem, cellType);
 }
 
 QStringList SMStyleImport::commonStyles(QTreeWidgetItem * rootItem, int type)

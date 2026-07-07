@@ -27,7 +27,9 @@ class SCRIBUS_API SMStyleImport : public QDialog, public Ui::SMStyleImport
 		SMStyleImport(QWidget* parent,
 					StyleSet<ParagraphStyle> *pstyleList,
 					StyleSet<CharStyle> *cstyleList,
-					QHash<QString, MultiLine> *lstyleList);
+					QHash<QString, MultiLine> *lstyleList,
+					StyleSet<TableStyle> *tstyleList,
+					StyleSet<CellStyle> *cellstyleList);
 		~SMStyleImport() {};
 
 		//! \brief True if the rename feature is ON.
@@ -35,12 +37,16 @@ class SCRIBUS_API SMStyleImport : public QDialog, public Ui::SMStyleImport
 		QStringList paragraphStyles();
 		QStringList characterStyles();
 		QStringList lineStyles();
+		QStringList tableStyles();
+		QStringList cellStyles();
 
 	protected:
 		//! \brief Root items in the styleWidget
 		QTreeWidgetItem * pstyleItem;
 		QTreeWidgetItem * cstyleItem;
 		QTreeWidgetItem * lstyleItem;
+		QTreeWidgetItem * tstyleItem;
+		QTreeWidgetItem * cellstyleItem;
 
 		/*! \brief Following constants are used as flags for searching.
 		Something like: give me all character style related items from
@@ -49,6 +55,8 @@ class SCRIBUS_API SMStyleImport : public QDialog, public Ui::SMStyleImport
 		static const int cType = QTreeWidgetItem::UserType;
 		static const int pType = QTreeWidgetItem::UserType + 1;
 		static const int lType = QTreeWidgetItem::UserType + 2;
+		static const int tType = QTreeWidgetItem::UserType + 3;
+		static const int cellType = QTreeWidgetItem::UserType + 4;
 
 		QStringList commonStyles(QTreeWidgetItem * rootItem, int type);
 

@@ -65,7 +65,7 @@ void SMTableStyle::setCurrentDoc(ScribusDoc *doc)
 	{
 		removeConnections();
 		m_selection.clear();
-		m_cachedStyles.clear();
+		m_tmpStyles.clear();
 	}
 }
 
@@ -80,16 +80,16 @@ QList<StyleName> SMTableStyle::styles(bool reloadFromDoc)
 		updateStylesCache(); // Update cache.
 
 	// Return a list of names of cached styles.
-	for (int i = 0; i < m_cachedStyles.count(); ++i)
+	for (int i = 0; i < m_tmpStyles.count(); ++i)
 	{
-		if (m_cachedStyles[i].hasName())
+		if (m_tmpStyles[i].hasName())
 		{
-			QString styleName(m_cachedStyles[i].displayName());
+			QString styleName(m_tmpStyles[i].displayName());
 			QString parentName;
 
-			if (m_cachedStyles[i].hasParent())
+			if (m_tmpStyles[i].hasParent())
 			{
-				const BaseStyle* parentStyle = m_cachedStyles[i].parentStyle();
+				const BaseStyle* parentStyle = m_tmpStyles[i].parentStyle();
 				if (parentStyle)
 					parentName = parentStyle->displayName();
 			}
@@ -114,19 +114,19 @@ void SMTableStyle::selected(const QStringList &styleNames)
 	removeConnections();
 	QList<TableStyle> tableStyles;
 
-	m_cachedStyles.invalidate();
+	m_tmpStyles.invalidate();
 
-	for (int i = 0; i < m_cachedStyles.count(); ++i)
-		tableStyles << m_cachedStyles[i];
+	for (int i = 0; i < m_tmpStyles.count(); ++i)
+		tableStyles << m_tmpStyles[i];
 
 	for (const QString& styleName : styleNames)
 	{
-		int index = m_cachedStyles.find(styleName);
+		int index = m_tmpStyles.find(styleName);
 		// FIXME: #7133: Use .isDefaultStyle() instead here rather than relying on tr text comparison
 		if (index < 0 && styleName == CommonStrings::trDefaultTableStyle)
-			index = m_cachedStyles.find(CommonStrings::DefaultTableStyle);
+			index = m_tmpStyles.find(CommonStrings::DefaultTableStyle);
 		if (index > -1)
-			m_selection.append(&m_cachedStyles[index]);
+			m_selection.append(&m_tmpStyles[index]);
 	}
 	m_page->show(m_selection, tableStyles, PrefsManager::instance().appPrefs.docSetupPrefs.language, m_doc->unitIndex());
 	setupConnections();
@@ -144,10 +144,10 @@ void SMTableStyle::toSelection(const QString &styleName) const
 		return; // nowhere to apply or no doc
 
 	QString realName = styleName;
-	int styleIndex = m_cachedStyles.find(styleName);
+	int styleIndex = m_tmpStyles.find(styleName);
 	if (styleIndex < 0 && (styleName == CommonStrings::trDefaultTableStyle))
 	{
-		styleIndex = m_cachedStyles.find(CommonStrings::DefaultTableStyle);
+		styleIndex = m_tmpStyles.find(CommonStrings::DefaultTableStyle);
 		if (styleIndex >= 0)
 			realName = CommonStrings::DefaultTableStyle;
 	}
@@ -165,7 +165,7 @@ QString SMTableStyle::newStyle()
 	TableStyle style;
 	style.setDefaultStyle(false);
 	style.setName(name);
-	m_cachedStyles.create(style);
+	m_tmpStyles.create(style);
 	return name;
 }
 
@@ -177,17 +177,17 @@ QString SMTableStyle::newStyle(const QString &fromStyle)
 	if (fromStyle == CommonStrings::trDefaultTableStyle)
 		fromStyleName = CommonStrings::DefaultTableStyle;
 
-	Q_ASSERT(m_cachedStyles.resolve(fromStyleName));
-	if (!m_cachedStyles.resolve(fromStyleName))
+	Q_ASSERT(m_tmpStyles.resolve(fromStyleName));
+	if (!m_tmpStyles.resolve(fromStyleName))
 		return QString();
 
 	// Copy the style with name constructed from the original name.
 	QString styleName(getUniqueName(fromStyle));
-	TableStyle tableStyle(m_cachedStyles.get(fromStyleName));
+	TableStyle tableStyle(m_tmpStyles.get(fromStyleName));
 	tableStyle.setDefaultStyle(false);
 	tableStyle.setName(styleName);
 	tableStyle.setShortcut(QString());
-	m_cachedStyles.create(tableStyle);
+	m_tmpStyles.create(tableStyle);
 
 	return styleName;
 }
@@ -206,7 +206,7 @@ void SMTableStyle::apply()
 		replacement[m_deleted[i].first] = m_deleted[i].second;
 	}
 
-	m_doc->redefineTableStyles(m_cachedStyles, false);
+	m_doc->redefineTableStyles(m_tmpStyles, false);
 	m_doc->replaceTableStyles(replacement);
 	m_doc->syncAllTableConditionalStyles();
 
@@ -226,17 +226,17 @@ void SMTableStyle::editMode(bool isOn)
 
 bool SMTableStyle::isDefaultStyle(const QString &styleName) const
 {
-	int index = m_cachedStyles.find(styleName);
+	int index = m_tmpStyles.find(styleName);
 	bool result = false;
 	if (index > -1)
-		result = m_cachedStyles[index].isDefaultStyle();
+		result = m_tmpStyles[index].isDefaultStyle();
 	else
 	{
 		if (CommonStrings::trDefaultTableStyle == styleName)
 		{
-			index = m_cachedStyles.find(CommonStrings::DefaultTableStyle);
+			index = m_tmpStyles.find(CommonStrings::DefaultTableStyle);
 			if (index > -1)
-				result = m_cachedStyles[index].isDefaultStyle();
+				result = m_tmpStyles[index].isDefaultStyle();
 		}
 	}
 	return result;
@@ -260,17 +260,17 @@ void SMTableStyle::setDefaultStyle(bool isDefaultStyle)
 QString SMTableStyle::shortcut(const QString &styleName) const
 {
 	QString result;
-	int index = m_cachedStyles.find(styleName);
+	int index = m_tmpStyles.find(styleName);
 	if (index > -1)
-		result = m_cachedStyles[index].shortcut();
+		result = m_tmpStyles[index].shortcut();
 	else
 	{
 		// FIXME: Use isDefaultStyle somehow.
 		if (CommonStrings::trDefaultTableStyle == styleName)
 		{
-			index = m_cachedStyles.find(CommonStrings::DefaultTableStyle);
+			index = m_tmpStyles.find(CommonStrings::DefaultTableStyle);
 			if (index > -1)
-				result = m_cachedStyles[index].shortcut();
+				result = m_tmpStyles[index].shortcut();
 		}
 	}
 	return result;
@@ -304,16 +304,16 @@ void SMTableStyle::deleteStyles(const QList<RemoveItem> &removeList)
 			}
 		}
 
-		int index = m_cachedStyles.find(removeItem.first);
+		int index = m_tmpStyles.find(removeItem.first);
 		if (index > -1)
-			m_cachedStyles.remove(index);
+			m_tmpStyles.remove(index);
 		m_deleted << removeItem;
 	}
 
 	// Check other styles and replace inherited styles if necessary
-	for (int i = 0; i < m_cachedStyles.count(); ++i)
+	for (int i = 0; i < m_tmpStyles.count(); ++i)
 	{
-		TableStyle& tableStyle = m_cachedStyles[i];
+		TableStyle& tableStyle = m_tmpStyles[i];
 		QString parentName = tableStyle.parent();
 		if (parentName.isEmpty())
 			continue;
@@ -334,7 +334,7 @@ void SMTableStyle::deleteStyles(const QList<RemoveItem> &removeList)
 			replacementName = CommonStrings::DefaultTableStyle;
 		if (!tableStyle.canInherit(replacementName))
 			replacementName = QString();
-		if (!replacementName.isEmpty() && (m_cachedStyles.find(replacementName) < 0))
+		if (!replacementName.isEmpty() && (m_tmpStyles.find(replacementName) < 0))
 			replacementName = QString();
 		tableStyle.setParent(replacementName);
 	}
@@ -348,28 +348,28 @@ void SMTableStyle::nameChanged(const QString &newName)
 	// Make a copy of the old style but with new name.
 	TableStyle newStyle(*m_selection[0]);
 	newStyle.setName(newName);
-	m_cachedStyles.create(newStyle);
+	m_tmpStyles.create(newStyle);
 
 	// Select the new style.
 	m_selection.clear();
-	m_selection.append(&m_cachedStyles[m_cachedStyles.find(newName)]);
+	m_selection.append(&m_tmpStyles[m_tmpStyles.find(newName)]);
 
 	// Remove old style from cache.
-	for (int j = 0; j < m_cachedStyles.count(); ++j)
+	for (int j = 0; j < m_tmpStyles.count(); ++j)
 	{
-		int index = m_cachedStyles.find(oldName);
+		int index = m_tmpStyles.find(oldName);
 		if (index > -1)
 		{
-			m_cachedStyles.remove(index);
+			m_tmpStyles.remove(index);
 			break;
 		}
 	}
 
 	// Set parent references to old style to new style.
-	for (int j = 0; j < m_cachedStyles.count(); ++j)
+	for (int j = 0; j < m_tmpStyles.count(); ++j)
 	{
-		if (m_cachedStyles[j].parent() == oldName)
-			m_cachedStyles[j].setParent(newName);
+		if (m_tmpStyles[j].parent() == oldName)
+			m_tmpStyles[j].setParent(newName);
 	}
 
 	// Update the deleted list to reflect the name change.
@@ -394,7 +394,7 @@ void SMTableStyle::nameChanged(const QString &newName)
 
 QString SMTableStyle::getUniqueName(const QString &name)
 {
-	return m_cachedStyles.getUniqueCopyName(name);
+	return m_tmpStyles.getUniqueCopyName(name);
 }
 
 void SMTableStyle::languageChange()
@@ -417,10 +417,10 @@ void SMTableStyle::updateStylesCache()
 		return; // No document available.
 
 	m_selection.clear();
-	m_cachedStyles.clear();
+	m_tmpStyles.clear();
 	m_deleted.clear();
 
-	m_cachedStyles.redefine(m_doc->tableStyles(), true);
+	m_tmpStyles.redefine(m_doc->tableStyles(), true);
 }
 
 void SMTableStyle::setupConnections()
@@ -513,7 +513,7 @@ void SMTableStyle::slotParentChanged(const QString &parent)
 	Q_ASSERT(!parent.isNull());
 
 	bool  loop = false, parentLoop = false;
-	const BaseStyle* parentStyle = (!parent.isEmpty()) ? m_cachedStyles.resolve(parent) : nullptr;
+	const BaseStyle* parentStyle = (!parent.isEmpty()) ? m_tmpStyles.resolve(parent) : nullptr;
 	QStringList  sel;
 
 	for (int i = 0; i < m_selection.count(); ++i)
