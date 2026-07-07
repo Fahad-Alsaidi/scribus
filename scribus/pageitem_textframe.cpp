@@ -1392,8 +1392,6 @@ void PageItem_TextFrame::layout()
 		double maxYAsc = 0.0, maxYDesc = 0.0;
 		int regionMinY = 0, regionMaxY= 0;
 
-		// double autoLeftIndent = 0.0;
-
 		double maxParEffectWidth = 0.0;
 
 		// Pre-pass: fully populate glyphClusters and compute maxParEffectWidth
@@ -1409,7 +1407,7 @@ void PageItem_TextFrame::layout()
 				{
 					prevA = a;
 					const ParagraphStyle& pStyle = itemText.paragraphStyle(a);
-					if (pStyle.hasBullet() || pStyle.hasNum())
+					if (pStyle.hasNum())
 					{
 						double effectWidth = 0.0;
 						for (int k = j; k < glyphClusters.count(); ++k)
@@ -1460,16 +1458,6 @@ void PageItem_TextFrame::layout()
 			BulNumMode = false;
 			if (itemText.isBlockStart(a))
 			{
-				// if (currentIndex > 0)
-				// {
-				// 	int prevA = current.glyphs[currentIndex - 1].firstChar();
-				// 	// if (a != prevA)
-				// 	// 	autoLeftIndent = 0.0;
-				// }
-				// else
-				// {
-				// 	autoLeftIndent = 0.0;
-				// }
 				style = itemText.paragraphStyle(a);
 				if (style.hasBullet() || style.hasNum())
 				{
@@ -1831,7 +1819,6 @@ void PageItem_TextFrame::layout()
 							if (style.suffixAlignment() == ParagraphStyle::SuffixAlign_Center)
 							{
 								double centerGap = (maxParEffectWidth - effectWidth) / 2.0;
-
 								current.leftIndent -= style.parEffectOffset() + centerGap;
 
 							}
