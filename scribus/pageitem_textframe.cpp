@@ -1812,7 +1812,7 @@ void PageItem_TextFrame::layout()
 							}
 							if ((style.suffixAlignment() == ParagraphStyle::SuffixAlign_Right))
 							{
-								current.leftIndent = abs(style.parEffectOffset() + (effectWidth - maxParEffectWidth));
+								current.leftIndent -= style.parEffectOffset() + (effectWidth - maxParEffectWidth);
 							}
 							if (style.suffixAlignment() == ParagraphStyle::SuffixAlign_Center)
 							{

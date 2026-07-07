@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>295</width>
-    <height>290</height>
+    <height>274</height>
    </rect>
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
@@ -29,7 +29,7 @@
    <item>
     <layout class="QHBoxLayout" name="horizontalLayout_6">
      <item>
-      <widget class="FormWidget" name="peLabel" native="true">
+      <widget class="FormWidget" name="peLabel">
        <property name="sizePolicy">
         <sizepolicy hsizetype="Preferred" vsizetype="Minimum">
          <horstretch>0</horstretch>
@@ -399,7 +399,7 @@
          <number>20</number>
         </property>
         <item>
-         <widget class="FormWidget" name="peOffsetLabel" native="true">
+         <widget class="FormWidget" name="peOffsetLabel">
           <property name="sizePolicy">
            <sizepolicy hsizetype="Preferred" vsizetype="Minimum">
             <horstretch>0</horstretch>
@@ -468,19 +468,12 @@
        </layout>
       </item>
       <item>
-       <layout class="QHBoxLayout" name="horizontalLayout_8">
-        <property name="spacing">
-         <number>4</number>
-        </property>
-       </layout>
-      </item>
-      <item>
        <layout class="QHBoxLayout" name="horizontalLayout">
         <property name="spacing">
          <number>4</number>
         </property>
         <item>
-         <widget class="FormWidget" name="peCharStyleLabel" native="true">
+         <widget class="FormWidget" name="peCharStyleLabel">
           <property name="sizePolicy">
            <sizepolicy hsizetype="Preferred" vsizetype="Minimum">
             <horstretch>0</horstretch>
@@ -570,7 +563,8 @@
   <tabstop>numStart</tabstop>
   <tabstop>numPrefix</tabstop>
   <tabstop>numSuffix</tabstop>
-  <tabstop>peOffset</tabstop>
+<tabstop>peOffset</tabstop>
+  <tabstop>suffixAlignmentCombo</tabstop>
   <tabstop>peCharStyleCombo</tabstop>
   <tabstop>dropCapLines</tabstop>
   <tabstop>bulletStrEdit</tabstop>
