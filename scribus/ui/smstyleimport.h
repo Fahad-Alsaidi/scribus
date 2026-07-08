@@ -9,11 +9,15 @@ for which a new license (GPL+exception) is in place.
 
 #include <QDialog>
 
-#include "ui_smstyleimport.h"
 #include "scribusapi.h"
-#include "styles/styleset.h"
 #include "scribusstructs.h"
-
+#include "styles/cellstyle.h"
+#include "styles/charstyle.h"
+#include "styles/linestyle.h"
+#include "styles/paragraphstyle.h"
+#include "styles/styleset.h"
+#include "styles/tablestyle.h"
+#include "ui_smstyleimport.h"
 
 /*! \brief Import styles from outer sla document.
 User can choose what to import and what to do with the style
