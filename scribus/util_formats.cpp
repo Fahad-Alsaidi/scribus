@@ -53,6 +53,7 @@ FormatsManager::FormatsManager()
 	QStringList gmagickformats;
 	InitializeMagick(0);
 	ExceptionInfo exception;
+	GetExceptionInfo(&exception);
 	MagickInfo **magick_array;
 	magick_array = GetMagickInfoArray(&exception);
 	if (!magick_array)
