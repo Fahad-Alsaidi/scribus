@@ -66,6 +66,7 @@ bool ScImgDataLoader_GMagick::readCMYK(Image *input, RawImage *output, int width
 	const PixelPacket *pixels = AcquireImagePixels(input, 0, 0, width, height, &exception);
 	if (exception.severity != UndefinedException)
 		CatchException(&exception);
+	DestroyExceptionInfo(&exception);
 	if (!pixels)
 	{
 		qCritical() << QObject::tr("Could not get pixel data!");
@@ -113,6 +114,7 @@ bool ScImgDataLoader_GMagick::readRGB(Image *input, QImage *output, int width, i
 	const PixelPacket *pixels = AcquireImagePixels(input, 0, 0, width, height, &exception);
 	if (exception.severity != UndefinedException)
 		CatchException(&exception);
+	DestroyExceptionInfo(&exception);
 	if (!pixels)
 	{
 		qCritical() << QObject::tr("Could not get pixel data!");
@@ -172,6 +174,7 @@ bool ScImgDataLoader_GMagick::loadPicture(const QString& fn, int /*page*/, int r
 	if (!image)
 	{
 		qCritical() << "Failed to read image" << fn;
+		DestroyExceptionInfo(&exception);
 		return false;
 	}
 	int width = image->columns;
@@ -278,6 +281,7 @@ bool ScImgDataLoader_GMagick::loadPicture(const QString& fn, int /*page*/, int r
 			image = CloneImage(flatten_image, 0, 0, true, &exception);
 		}
 	}
+	DestroyExceptionInfo(&exception);
 
 	if (image->colorspace == CMYKColorspace)
 	{
@@ -331,6 +335,7 @@ bool ScImgDataLoader_GMagick::preloadAlphaChannel(const QString& fn, int /*page*
 	Image *image = PingImage(image_info, &exception);
 	if (exception.severity != UndefinedException)
 		CatchException(&exception);
+	DestroyExceptionInfo(&exception);
 	if (!image)
 	{
 		qCritical() << "Failed to read image" << fn;
@@ -358,6 +363,7 @@ void ScImgDataLoader_GMagick::loadEmbeddedProfile(const QString& fn, int /*page*
 	Image *image = ReadImage(image_info, &exception);
 	if (exception.severity != UndefinedException)
 		CatchException(&exception);
+	DestroyExceptionInfo(&exception);
 	if (!image)
 	{
 		qCritical() << "Failed to read image" << fn;

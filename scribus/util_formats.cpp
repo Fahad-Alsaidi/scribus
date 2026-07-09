@@ -56,6 +56,7 @@ FormatsManager::FormatsManager()
 	GetExceptionInfo(&exception);
 	MagickInfo **magick_array;
 	magick_array = GetMagickInfoArray(&exception);
+	DestroyExceptionInfo(&exception);
 	if (!magick_array)
 		return;
 	for (int i=0; magick_array[i] != 0; i++)
