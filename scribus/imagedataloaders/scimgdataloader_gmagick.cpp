@@ -169,6 +169,7 @@ bool ScImgDataLoader_GMagick::loadPicture(const QString& fn, int /*page*/, int r
 	strcpy(image_info->filename, fn.toUtf8().data());
 	image_info->units = PixelsPerInchResolution;
 	Image *image = ReadImage(image_info, &exception);
+	DestroyImageInfo(image_info);
 	if (exception.severity != UndefinedException)
 		CatchException(&exception);
 	if (!image)
@@ -333,6 +334,7 @@ bool ScImgDataLoader_GMagick::preloadAlphaChannel(const QString& fn, int /*page*
 	strcpy(image_info->filename, fn.toUtf8().data());
 	image_info->units = PixelsPerInchResolution;
 	Image *image = PingImage(image_info, &exception);
+	DestroyImageInfo(image_info);
 	if (exception.severity != UndefinedException)
 		CatchException(&exception);
 	DestroyExceptionInfo(&exception);
@@ -361,6 +363,7 @@ void ScImgDataLoader_GMagick::loadEmbeddedProfile(const QString& fn, int /*page*
 	strcpy(image_info->filename, fn.toUtf8().data());
 	image_info->units = PixelsPerInchResolution;
 	Image *image = ReadImage(image_info, &exception);
+	DestroyImageInfo(image_info);
 	if (exception.severity != UndefinedException)
 		CatchException(&exception);
 	DestroyExceptionInfo(&exception);
