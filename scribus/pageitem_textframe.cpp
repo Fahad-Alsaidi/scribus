@@ -1075,10 +1075,15 @@ double calculateLineSpacing (const ParagraphStyle &style, PageItem *item)
 	return style.lineSpacing();
 }
 
-/**
- * @brief Pre-pass to compute the maximum paragraph effect width.
- */
-static double maxParagraphEffectWidth(PageItem* item)
+static QString numListKey(const ParagraphStyle& style)
+{
+	return style.numName() + QLatin1Char('\x1f')
+		 + QString::number(style.numFormat()) + QLatin1Char('\x1f')
+		 + style.numPrefix() + QLatin1Char('\x1f')
+		 + style.numSuffix();
+}
+
+static double maxParagraphEffectWidth(PageItem* item, const QString& targetListKey)
 {
 	ShapedTextFeed shapedText(&item->itemText, 0, item);
 
@@ -1096,7 +1101,7 @@ static double maxParagraphEffectWidth(PageItem* item)
 		{
 			prevA = a;
 			const ParagraphStyle& pStyle = item->itemText.paragraphStyle(a);
-			if (pStyle.hasNum())
+			if (pStyle.hasNum() && numListKey(pStyle) == targetListKey)
 			{
 				double effectWidth = 0.0;
 				for (int k = j; k < glyphClusters.count(); ++k)
@@ -1431,7 +1436,7 @@ void PageItem_TextFrame::layout()
 		setMaxY(-1);
 		double maxYAsc = 0.0, maxYDesc = 0.0;
 		int regionMinY = 0, regionMaxY= 0;
-		double cachedMaxParEffectWidth = -1.0;
+		QHash<QString, double> cachedMaxParEffectWidthByList;
 
 		for (int i = 0; shapedText.haveMoreText(i, glyphClusters); ++i)
 		{
@@ -1858,13 +1863,16 @@ void PageItem_TextFrame::layout()
 						if (style.suffixAlignment() == ParagraphStyle::SuffixAlign_Right ||
 							style.suffixAlignment() == ParagraphStyle::SuffixAlign_Center)
 						{
-							if (cachedMaxParEffectWidth < 0.0)
-								cachedMaxParEffectWidth = maxParagraphEffectWidth(this);
+							const QString listKey = numListKey(style);
+							if (!cachedMaxParEffectWidthByList.contains(listKey))
+								cachedMaxParEffectWidthByList[listKey] = maxParagraphEffectWidth(this, listKey);
+
+							double maxParEffectWidth = cachedMaxParEffectWidthByList.value(listKey);
 
 							if (style.suffixAlignment() == ParagraphStyle::SuffixAlign_Right)
-								indentAdjust = style.parEffectOffset() + (effectWidth - cachedMaxParEffectWidth);
+								indentAdjust = style.parEffectOffset() + (effectWidth - maxParEffectWidth);
 							else
-								indentAdjust = style.parEffectOffset() + (effectWidth - cachedMaxParEffectWidth) / 2.0;
+								indentAdjust = style.parEffectOffset() + (effectWidth - maxParEffectWidth) / 2.0;
 						}
 
 						if (style.direction() == ParagraphStyle::RTL)
