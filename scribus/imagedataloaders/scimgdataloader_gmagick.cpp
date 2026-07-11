@@ -178,6 +178,7 @@ bool ScImgDataLoader_GMagick::loadPicture(const QString& fn, int /*page*/, int r
 		DestroyExceptionInfo(&exception);
 		return false;
 	}
+	Image *baseImage = image;
 	int width = image->columns;
 	int height = image->rows;
 	double xres = image->x_resolution;
@@ -281,6 +282,8 @@ bool ScImgDataLoader_GMagick::loadPicture(const QString& fn, int /*page*/, int r
 			}
 			image = CloneImage(flatten_image, 0, 0, true, &exception);
 		}
+		if (flatten_image != (Image *) nullptr)
+			DestroyImage(flatten_image);
 	}
 	DestroyExceptionInfo(&exception);
 
@@ -288,7 +291,12 @@ bool ScImgDataLoader_GMagick::loadPicture(const QString& fn, int /*page*/, int r
 	{
 		m_useRawImage = true;
 		if (!readCMYK(image, &r_image, width, height))
+		{
+			if (image != baseImage)
+				DestroyImage(baseImage);
+			DestroyImage(image);
 			return false;
+		}
 		m_imageInfoRecord.colorspace = ColorSpaceCMYK;
 		m_pixelFormat = (r_image.channels() == 5) ? Format_CMYKA_8 : Format_CMYK_8;
 	}
@@ -297,7 +305,12 @@ bool ScImgDataLoader_GMagick::loadPicture(const QString& fn, int /*page*/, int r
 		m_useRawImage = false;
 		m_image = QImage(width, height, QImage::Format_ARGB32);
 		if (!readRGB(image, &m_image, width, height))
+		{
+			if (image != baseImage)
+				DestroyImage(baseImage);
+			DestroyImage(image);
 			return false;
+		}
 		m_imageInfoRecord.colorspace = ColorSpaceRGB;
 		m_pixelFormat = Format_BGRA_8;
 	}
@@ -315,6 +328,9 @@ bool ScImgDataLoader_GMagick::loadPicture(const QString& fn, int /*page*/, int r
 	m_imageInfoRecord.BBoxX = 0;
 	m_imageInfoRecord.BBoxH = m_image.height();
 	m_imageInfoRecord.valid = true;
+	if (image != baseImage)
+		DestroyImage(baseImage);
+	DestroyImage(image);
 	return true;
 }
 
