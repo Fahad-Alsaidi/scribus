@@ -438,10 +438,17 @@
           </layout>
          </widget>
         </item>
-        <item>
-         <widget class="QCheckBox" name="peIndent">
+<item>
+         <widget class="QLabel" name="suffixAlignmentLabel">
           <property name="text">
-           <string>Auto-Indent</string>
+           <string>Suffix Align:</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QComboBox" name="suffixAlignmentCombo">
+          <property name="toolTip">
+           <string>Alignment of suffix characters in numbered lists</string>
           </property>
          </widget>
         </item>
@@ -556,8 +563,8 @@
   <tabstop>numStart</tabstop>
   <tabstop>numPrefix</tabstop>
   <tabstop>numSuffix</tabstop>
-  <tabstop>peOffset</tabstop>
-  <tabstop>peIndent</tabstop>
+<tabstop>peOffset</tabstop>
+  <tabstop>suffixAlignmentCombo</tabstop>
   <tabstop>peCharStyleCombo</tabstop>
   <tabstop>dropCapLines</tabstop>
   <tabstop>bulletStrEdit</tabstop>

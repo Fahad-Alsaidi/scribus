@@ -1075,6 +1075,46 @@ double calculateLineSpacing (const ParagraphStyle &style, PageItem *item)
 	return style.lineSpacing();
 }
 
+/**
+ * @brief Pre-pass to compute the maximum paragraph effect width.
+ */
+static double maxParagraphEffectWidth(PageItem* item)
+{
+	ShapedTextFeed shapedText(&item->itemText, 0, item);
+
+	QList<GlyphCluster> glyphClusters;
+	for (int j = 0; shapedText.haveMoreText(j, glyphClusters); ++j)
+		;
+
+	double maxParEffectWidth = 0.0;
+	int prevA = -1;
+
+	for (int j = 0; j < glyphClusters.count(); ++j)
+	{
+		int a = glyphClusters[j].firstChar();
+		if (item->itemText.isBlockStart(a) && a != prevA)
+		{
+			prevA = a;
+			const ParagraphStyle& pStyle = item->itemText.paragraphStyle(a);
+			if (pStyle.hasNum())
+			{
+				double effectWidth = 0.0;
+				for (int k = j; k < glyphClusters.count(); ++k)
+				{
+					const auto& glyph = glyphClusters[k];
+					if (glyph.firstChar() != a)
+						break;
+					effectWidth += glyph.width();
+				}
+
+				double totalWidth = pStyle.parEffectOffset() + effectWidth;
+				if (totalWidth > maxParEffectWidth)
+					maxParEffectWidth = totalWidth;
+			}
+		}
+	}
+	return maxParEffectWidth;
+}
 
 // This assumes that layout() ran on the previous page and set the incomplete* vars
 // It also clears the incomplete* vars, and changes the starting position for this frame
@@ -1391,8 +1431,8 @@ void PageItem_TextFrame::layout()
 		setMaxY(-1);
 		double maxYAsc = 0.0, maxYDesc = 0.0;
 		int regionMinY = 0, regionMaxY= 0;
+		double cachedMaxParEffectWidth = -1.0;
 
-		double autoLeftIndent = 0.0;
 		for (int i = 0; shapedText.haveMoreText(i, glyphClusters); ++i)
 		{
 			int currentIndex = i - current.lineData.firstCluster;
@@ -1425,16 +1465,6 @@ void PageItem_TextFrame::layout()
 			BulNumMode = false;
 			if (itemText.isBlockStart(a))
 			{
-				if (currentIndex > 0)
-				{
-					int prevA = current.glyphs[currentIndex - 1].firstChar();
-					if (a != prevA)
-						autoLeftIndent = 0.0;
-				}
-				else
-				{
-					autoLeftIndent = 0.0;
-				}
 				style = itemText.paragraphStyle(a);
 				if (style.hasBullet() || style.hasNum())
 				{
@@ -1807,7 +1837,7 @@ void PageItem_TextFrame::layout()
 					else
 					{
 						// LTR: Original behavior
-						current.leftIndent = style.leftMargin() + autoLeftIndent;
+						current.leftIndent = style.leftMargin();
 						if (itemText.isBlockStart(a))
 						{
 							current.leftIndent += style.firstIndent();
@@ -1816,33 +1846,31 @@ void PageItem_TextFrame::layout()
 
 					if (BulNumMode || DropCmode)
 					{
-						if (style.parEffectIndent())
+						double effectWidth = 0.0;
+						for (int j = i; shapedText.haveMoreText(j, glyphClusters); ++j)
 						{
-							double effectWidth = 0.0;
-							for (int j = i; shapedText.haveMoreText(j, glyphClusters); ++j)
-							{
-								const auto & glyph = glyphClusters[j];
-								if (glyph.firstChar() != a)
-									break;
-								effectWidth += glyph.width();
-							}
-
-							if (style.direction() == ParagraphStyle::RTL)
-							{
-								current.rightIndent -= style.parEffectOffset() + effectWidth;
-								if (current.rightIndent < 0.0)
-									current.rightIndent = 0.0;
-							}
-							else
-							{
-								current.leftIndent -= style.parEffectOffset() + effectWidth;
-								if (current.leftIndent < 0.0)
-								{
-									autoLeftIndent = abs(current.leftIndent);
-									current.leftIndent = 0.0;
-								}
-							}
+							const auto& glyph = glyphClusters[j];
+							if (glyph.firstChar() != a)
+								break;
+							effectWidth += glyph.width();
 						}
+						double indentAdjust = 0.0;
+						if (style.suffixAlignment() == ParagraphStyle::SuffixAlign_Right ||
+							style.suffixAlignment() == ParagraphStyle::SuffixAlign_Center)
+						{
+							if (cachedMaxParEffectWidth < 0.0)
+								cachedMaxParEffectWidth = maxParagraphEffectWidth(this);
+
+							if (style.suffixAlignment() == ParagraphStyle::SuffixAlign_Right)
+								indentAdjust = style.parEffectOffset() + (effectWidth - cachedMaxParEffectWidth);
+							else
+								indentAdjust = style.parEffectOffset() + (effectWidth - cachedMaxParEffectWidth) / 2.0;
+						}
+
+						if (style.direction() == ParagraphStyle::RTL)
+							current.rightIndent -= indentAdjust;
+						else
+							current.leftIndent -= indentAdjust;
 					}
 					// RTL drop-cap follow-lines: Constrain the available line width
 					// from the right margin to prevent text overlapping the right-aligned drop cap.

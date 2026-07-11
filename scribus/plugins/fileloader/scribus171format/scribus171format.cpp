@@ -3635,10 +3635,6 @@ void Scribus171Format::readParagraphStyle(ScribusDoc *doc, ScXmlStreamReader& re
 	if (attrs.hasAttribute(ParagraphEffectOffset))
 		newStyle.setParEffectOffset(attrs.valueAsDouble(ParagraphEffectOffset));
 
-	static const QString ParagraphEffectIndent("ParagraphEffectIndent");
-	if (attrs.hasAttribute(ParagraphEffectIndent))
-		newStyle.setParEffectIndent(attrs.valueAsDouble(ParagraphEffectIndent));
-
 	//Remove uppercase in 1.8 format
 	if (attrs.hasAttribute("DROP"))
 		newStyle.setHasDropCap(static_cast<bool>(attrs.valueAsInt("DROP")));
@@ -3694,6 +3690,10 @@ void Scribus171Format::readParagraphStyle(ScribusDoc *doc, ScXmlStreamReader& re
 	static const QString NumerationSuffix("NumerationSuffix");
 	if (attrs.hasAttribute(NumerationSuffix))
 		newStyle.setNumSuffix(attrs.valueAsString(NumerationSuffix));
+
+	static const QString SuffixAlignment("SuffixAlignment");
+	if (attrs.hasAttribute(SuffixAlignment))
+		newStyle.setSuffixAlignment(static_cast<ParagraphStyle::SuffixAlignment>(attrs.valueAsInt(SuffixAlignment)));
 
 	static const QString NumerationRestart("NumerationRestart");
 	if (attrs.hasAttribute(NumerationRestart))
@@ -6679,8 +6679,6 @@ PageItem* Scribus171Format::pasteItem(ScribusDoc *doc, const ScXmlStreamAttribut
 		pstyle.setPeCharStyleName(attrs.valueAsString("ParagraphEffectCharStyle"));
 	if (attrs.hasAttribute("ParagraphEffectOffset"))
 		pstyle.setParEffectOffset(attrs.valueAsDouble("ParagraphEffectOffset"));
-	if (attrs.hasAttribute("ParagraphEffectIndent"))
-		pstyle.setParEffectIndent(attrs.valueAsDouble("ParagraphEffectIndent"));
 	//Remove uppercase in 1.8
 	if (attrs.hasAttribute("DROP"))
 		pstyle.setHasDropCap(static_cast<bool>(attrs.valueAsInt("DROP")));
@@ -6717,6 +6715,8 @@ PageItem* Scribus171Format::pasteItem(ScribusDoc *doc, const ScXmlStreamAttribut
 		pstyle.setNumPrefix(attrs.valueAsString("NumerationPrefix"));
 	if (attrs.hasAttribute("NumerationSuffix"))
 		pstyle.setNumSuffix(attrs.valueAsString("NumerationSuffix"));
+	if (attrs.hasAttribute("SuffixAlignment"))
+		pstyle.setSuffixAlignment(static_cast<ParagraphStyle::SuffixAlignment>(attrs.valueAsInt("SuffixAlignment")));
 	if (attrs.hasAttribute("NumerationRestart"))
 	{
 		NumerationRange numRange = (NumerationRange) attrs.valueAsInt("NumerationRestart");

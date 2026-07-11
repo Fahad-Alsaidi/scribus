@@ -846,8 +846,6 @@ void Scribus171Format::putPStyle(ScXmlStreamWriter & docu, const ParagraphStyle 
 		docu.writeAttribute("ParagraphEffectCharStyle", style.peCharStyleName());
 	if (!style.isInhParEffectOffset())
 		docu.writeAttribute("ParagraphEffectOffset", style.parEffectOffset());
-	if (!style.isInhParEffectIndent())
-		docu.writeAttribute("ParagraphEffectIndent", static_cast<int>(style.parEffectIndent()));
 	if (!style.isInhHasDropCap())
 		docu.writeAttribute("HasDropCap", static_cast<int>(style.hasDropCap()));
 	if (!style.isInhDropCapLines())
@@ -868,6 +866,8 @@ void Scribus171Format::putPStyle(ScXmlStreamWriter & docu, const ParagraphStyle 
 		docu.writeAttribute("NumerationPrefix", style.numPrefix());
 	if (!style.isInhNumSuffix())
 		docu.writeAttribute("NumerationSuffix", style.numSuffix());
+	if (!style.isInhSuffixAlignment())
+		docu.writeAttribute("SuffixAlignment", style.suffixAlignment());
 	if (!style.isInhNumStart())
 		docu.writeAttribute("NumerationStart", style.numStart());
 	if (!style.isInhNumRestart())

@@ -3123,10 +3123,6 @@ void Scribus150Format::readParagraphStyle(ScribusDoc *doc, ScXmlStreamReader& re
 	if (attrs.hasAttribute(ParagraphEffectOffset))
 		newStyle.setParEffectOffset(attrs.valueAsDouble(ParagraphEffectOffset));
 
-	static const QString ParagraphEffectIndent("ParagraphEffectIndent");
-	if (attrs.hasAttribute(ParagraphEffectIndent))
-		newStyle.setParEffectIndent(attrs.valueAsDouble(ParagraphEffectIndent));
-
 	static const QString DROP("DROP");
 	if (attrs.hasAttribute(DROP))
 		newStyle.setHasDropCap(static_cast<bool>(attrs.valueAsInt(DROP)));
@@ -5497,8 +5493,6 @@ PageItem* Scribus150Format::pasteItem(ScribusDoc *doc, const ScXmlStreamAttribut
 		pstyle.setPeCharStyleName(attrs.valueAsString("ParagraphEffectCharStyle"));
 	if (attrs.hasAttribute("ParagraphEffectOffset"))
 		pstyle.setParEffectOffset(attrs.valueAsDouble("ParagraphEffectOffset"));
-	if (attrs.hasAttribute("ParagraphEffectIndent"))
-		pstyle.setParEffectIndent(attrs.valueAsDouble("ParagraphEffectIndent"));
 	if (attrs.hasAttribute("DROP"))
 		pstyle.setHasDropCap(static_cast<bool>(attrs.valueAsInt("DROP")));
 	if (attrs.hasAttribute("DROPLIN"))

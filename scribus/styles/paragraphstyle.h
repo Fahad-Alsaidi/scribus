@@ -76,6 +76,13 @@ public:
 		CenterTab = 4
 	};
 
+	enum SuffixAlignment
+	{
+		SuffixAlign_Left   = 0,
+		SuffixAlign_Center = 1,
+		SuffixAlign_Right  = 2
+	};
+
 	struct TabRecord
 	{
 		qreal tabPosition {0.0};
@@ -113,6 +120,7 @@ public:
 	void eraseStyle(const ParagraphStyle& other);
 	void setStyle(const ParagraphStyle& other);
 	void erase() override { eraseStyle(*this); }
+	ParagraphStyle::SuffixAlignment flipSuffixAlignmentForRTL(ParagraphStyle::SuffixAlignment align) const;
 
 	StyleContext* charStyleContext() { return & m_cstyleContext; }
 	const StyleContext* charStyleContext() const { return & m_cstyleContext; }

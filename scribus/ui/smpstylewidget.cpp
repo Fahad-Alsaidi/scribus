@@ -25,7 +25,6 @@ static bool isEqual(double a, double b)
 	return al == bl;
 }
 
-
 SMPStyleWidget::SMPStyleWidget(ScribusDoc* doc, StyleSet<CharStyle> *cstyles) :
 	m_Doc(doc),
 	m_cstyles(cstyles)
@@ -74,6 +73,7 @@ SMPStyleWidget::SMPStyleWidget(ScribusDoc* doc, StyleSet<CharStyle> *cstyles) :
 	dropCapLines->setMaximum(99);
 
 	fillPECombo();
+	fillSuffixAlignmentCombo();
 	connect(peCombo, SIGNAL(currentIndexChanged(int)), this, SLOT(handleParEffectUse(int)));
 	connect(parentParEffectsButton, SIGNAL(clicked()), this, SLOT(slotParentParEffects()));
 
@@ -156,7 +156,7 @@ void SMPStyleWidget::languageChange()
 	numRestartCombo->blockSignals(numRestartComboBlocked);
 
 	fillPECombo();
-
+	fillSuffixAlignmentCombo();
 	backgroundColor->colorButton->setPersistentToolTip( tr("Background color of selected text"));
 	backgroundColor->setText(tr("Background"));
 }
@@ -303,8 +303,19 @@ void SMPStyleWidget::show(ParagraphStyle *pstyle, QList<ParagraphStyle> &pstyles
 
 		parEffectOffset->setValue(pstyle->parEffectOffset() * unitRatio, pstyle->isInhParEffectOffset());
 		parEffectOffset->setParentValue(parent->parEffectOffset() * unitRatio);
-		parEffectIndentBox->setChecked(pstyle->parEffectIndent(),pstyle->isInhParEffectIndent());
-		parEffectIndentBox->setParentValue(parent->parEffectIndent());
+
+		ParagraphStyle::SuffixAlignment displayAlign = pstyle->suffixAlignment();
+		if (pstyle->direction() == ParagraphStyle::RTL)
+			displayAlign = pstyle->flipSuffixAlignmentForRTL(displayAlign);
+
+		ParagraphStyle::SuffixAlignment parentDisplayAlign = parent->suffixAlignment();
+		if (parent->direction() == ParagraphStyle::RTL)
+			parentDisplayAlign = pstyle->flipSuffixAlignmentForRTL(parentDisplayAlign);
+
+		int suffixAlignIndex = suffixAlignmentCombo->findData(static_cast<int>(displayAlign));
+		suffixAlignmentCombo->setCurrentItem(suffixAlignIndex, pstyle->isInhSuffixAlignment());
+		suffixAlignmentCombo->setParentItem(suffixAlignmentCombo->findData(static_cast<int>(parentDisplayAlign)));
+
 		dropCapLines->setValue(pstyle->dropCapLines(), pstyle->isInhDropCapLines());
 		dropCapLines->setParentValue(parent->dropCapLines());
 		bulletStrEdit->setEditText(pstyle->bulletStr());
@@ -356,10 +367,13 @@ void SMPStyleWidget::show(ParagraphStyle *pstyle, QList<ParagraphStyle> &pstyles
 		maxGlyphExtSpin->setValue(pstyle->maxGlyphExtension() * 100.0);
 		maxConsecutiveCountSpinBox->setValue(pstyle->hyphenConsecutiveLines());
 		parEffectOffset->setValue(pstyle->parEffectOffset() * unitRatio);
-		parEffectIndentBox->setChecked(pstyle->parEffectIndent());
-		parentParEffectsButton->hide();
-		disconnect(parentParEffectsButton, SIGNAL(clicked()), this, SLOT(slotParentParEffects()));
 
+		ParagraphStyle::SuffixAlignment displayAlign = pstyle->suffixAlignment();
+		if (pstyle->direction() == ParagraphStyle::RTL)
+			displayAlign = pstyle->flipSuffixAlignmentForRTL(displayAlign);
+
+		int suffixAlignIndex = suffixAlignmentCombo->findData(static_cast<int>(displayAlign));
+		suffixAlignmentCombo->setCurrentItem((suffixAlignIndex >= 0) ? suffixAlignIndex : 0);
 		dropCapLines->setValue(pstyle->dropCapLines());
 		bulletStrEdit->setEditText(pstyle->bulletStr());
 		setWidgetBoldFont(bulletCharLabel, false);
@@ -1000,6 +1014,17 @@ void SMPStyleWidget::fillPECombo()
 	peCombo->setCurrentIndex(currIndex);
 }
 
+void SMPStyleWidget::fillSuffixAlignmentCombo()
+{
+	QSignalBlocker sb(suffixAlignmentCombo);
+	int currIndex = suffixAlignmentCombo->currentIndex();
+	suffixAlignmentCombo->clear();
+	suffixAlignmentCombo->addItem(tr("Left"), ParagraphStyle::SuffixAlign_Left);
+	suffixAlignmentCombo->addItem(tr("Center"), ParagraphStyle::SuffixAlign_Center);
+	suffixAlignmentCombo->addItem(tr("Right"), ParagraphStyle::SuffixAlign_Right);
+	suffixAlignmentCombo->setCurrentIndex(currIndex);
+}
+
 void SMPStyleWidget::setParagraphEffect(int index)
 {
 	QSignalBlocker sigPECombo(peCombo);
@@ -1030,6 +1055,9 @@ void SMPStyleWidget::setParagraphEffect(int index)
 		peGroup->setVisible(false);
 		peCombo->setCurrentIndex(0);
 	}
+	bool isNumberedList = (id == 3);
+	suffixAlignmentLabel->setVisible(isNumberedList);
+	suffixAlignmentCombo->setVisible(isNumberedList);
 }
 
 void SMPStyleWidget::showDropCap(const QList<ParagraphStyle*> &pstyles, const QList<CharStyle> &cstyles, int unitIndex)

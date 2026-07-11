@@ -208,6 +208,14 @@ void ParagraphStyle::setStyle(const ParagraphStyle & other)
 #undef ATTRDEF
 }
 
+ParagraphStyle::SuffixAlignment ParagraphStyle::flipSuffixAlignmentForRTL(SuffixAlignment align) const
+{
+	if (align == ParagraphStyle::SuffixAlign_Left)
+		return ParagraphStyle::SuffixAlign_Right;
+	if (align == ParagraphStyle::SuffixAlign_Right)
+		return ParagraphStyle::SuffixAlign_Left;
+	return align;
+}
 
 void ParagraphStyle::getNamedResources(ResourceCollection& lists) const
 {
@@ -257,6 +265,11 @@ void ParagraphStyle::replaceNamedResources(ResourceCollection& newNames)
 
 
 static QString toXMLString(ParagraphStyle::AlignmentType val)
+{
+	return QString::number(static_cast<int>(val));
+}
+
+static QString toXMLString(ParagraphStyle::SuffixAlignment val)
 {
 	return QString::number(static_cast<int>(val));
 }
@@ -342,6 +355,12 @@ template<>
 ParagraphStyle::AlignmentType parse<ParagraphStyle::AlignmentType>(const Xml_string& str)
 {
 	return parseEnum<ParagraphStyle::AlignmentType>(str);
+}
+
+template<>
+ParagraphStyle::SuffixAlignment parse<ParagraphStyle::SuffixAlignment>(const Xml_string& str)
+{
+	return parseEnum<ParagraphStyle::SuffixAlignment>(str);
 }
 
 template<>
