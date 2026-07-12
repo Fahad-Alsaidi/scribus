@@ -79,6 +79,9 @@ private:
 	void resetSelectionAnchor();
 	/// Move the cursor
 	bool moveActiveCell(int key);
+	/// Maps an arrow key to the column direction it moves in. Left and Right
+	/// are swapped when the table is RTL, so the cell motion mirrors LTR.
+	int logicalKey(int key) const;
 	void navigateCells(int key);
 	void extendCellSelection(int key);
 	bool cursorAtCellBoundary(int key) const;

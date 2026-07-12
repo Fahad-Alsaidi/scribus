@@ -132,9 +132,13 @@ void CanvasMode_EditTable::keyPressEvent(QKeyEvent* event)
 	if (key == Qt::Key_Tab && effMods == Qt::NoModifier)
 	{
 		const TableCell active = m_table->activeCell();
+		// Tab advances towards column 0 when the table is RTL, so that is the
+		// column the last cell of the table sits in.
+		const bool atLastColumn = m_table->effectiveRTL()
+				? (active.column() == 0)
+				: (active.column() + active.columnSpan() - 1 == m_table->columns() - 1);
 		const bool atLastCell =
-				(active.row()    + active.rowSpan()    - 1 == m_table->rows()    - 1) &&
-				(active.column() + active.columnSpan() - 1 == m_table->columns() - 1);
+				(active.row() + active.rowSpan() - 1 == m_table->rows() - 1) && atLastColumn;
 		if (atLastCell)
 		{
 			m_table->appendRows(1);
@@ -557,7 +561,7 @@ void CanvasMode_EditTable::drawTableHandleHints(QPainter* p)
 
 	// Select-all corner marker. LTR: top-left corner; RTL: top-right corner.
 	// Matches the corner hit-tested in PageItem_Table::hitTest for SelectAll.
-	const bool rtl = false; // TODO: table RTL flag when RTL document/layout is added.
+	const bool rtl = m_table->effectiveRTL();
 	const double cornerSize = qMax(threshold * 2.0, 10.0 / m_canvas->scale());
 	const double cornerX = rtl ? (offset.x() + tableW - cornerSize) : offset.x();
 	const double cornerY = offset.y();
@@ -737,9 +741,22 @@ void CanvasMode_EditTable::resetSelectionAnchor()
 	m_selectionAnchorColumn = -1;
 }
 
+int CanvasMode_EditTable::logicalKey(int key) const
+{
+	if (!m_table->effectiveRTL())
+		return key;
+	if (key == Qt::Key_Left)
+		return Qt::Key_Right;
+	if (key == Qt::Key_Right)
+		return Qt::Key_Left;
+	return key;
+}
+
 bool CanvasMode_EditTable::moveActiveCell(int key)
 {
-	switch (key)
+	// The key gives the direction on screen; logicalKey() turns it into the
+	// column to move to, which is mirrored when the table is RTL.
+	switch (logicalKey(key))
 	{
 		case Qt::Key_Left:
 			m_table->moveLeft();
@@ -854,21 +871,29 @@ bool CanvasMode_EditTable::cursorAtCellBoundary(int key) const
 bool CanvasMode_EditTable::tryRowWrap(int key, int beforeRow, int beforeCol)
 {
 	// Returns true if the active cell didn't change after moveActiveCell()
-	// and we successfully wrapped to a different row. Right at end of row
-	// wraps to (row+1, 0); Left at start of row wraps to (row-1, lastCol).
-	// Vertical motion does not wrap.
+	// and we successfully wrapped to a different row. Vertical motion does
+	// not wrap.
 	if (m_table->activeCell().row() != beforeRow ||
 		m_table->activeCell().column() != beforeCol)
 		return false;
 
+	// The key here is the traversal direction, not a column direction:
+	// Key_Right always means forward (Tab, and the arrow that moves forward in
+	// reading order) and Key_Left always means back, in both LTR and RTL. It is
+	// only the columns a row starts and ends at that mirror when RTL, so moving
+	// forward off the end of a row always continues at the start of the next.
+	const bool rtl = m_table->effectiveRTL();
+	const int rowStartCol = rtl ? m_table->columns() - 1 : 0;
+	const int rowEndCol   = rtl ? 0 : m_table->columns() - 1;
+
 	if (key == Qt::Key_Right && beforeRow + 1 < m_table->rows())
 	{
-		m_table->moveTo(m_table->cellAt(beforeRow + 1, 0));
+		m_table->moveTo(m_table->cellAt(beforeRow + 1, rowStartCol));
 		return true;
 	}
 	if (key == Qt::Key_Left && beforeRow > 0)
 	{
-		m_table->moveTo(m_table->cellAt(beforeRow - 1, m_table->columns() - 1));
+		m_table->moveTo(m_table->cellAt(beforeRow - 1, rowEndCol));
 		return true;
 	}
 	return false;
