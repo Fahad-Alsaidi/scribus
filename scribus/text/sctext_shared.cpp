@@ -68,6 +68,7 @@ void ScText_Shared::clear()
 	if (marksCount > 0)
 		marksCountChanged = true;
 	marksCount = 0;
+	maxParEffectWidthCache.clear();
 }
 
 ScText_Shared& ScText_Shared::operator= (const ScText_Shared& other) 

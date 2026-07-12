@@ -1085,6 +1085,11 @@ static QString numListKey(const ParagraphStyle& style)
 
 static double maxParagraphEffectWidth(PageItem* item, const QString& targetListKey)
 {
+	QHash<QString, double>& cache = item->itemText.maxParEffectWidthCache();
+	auto cacheIt = cache.constFind(targetListKey);
+	if (cacheIt != cache.constEnd())
+		return cacheIt.value();
+
 	ShapedTextFeed shapedText(&item->itemText, 0, item);
 
 	QList<GlyphCluster> glyphClusters;
@@ -1118,6 +1123,7 @@ static double maxParagraphEffectWidth(PageItem* item, const QString& targetListK
 			}
 		}
 	}
+	cache.insert(targetListKey, maxParEffectWidth);
 	return maxParEffectWidth;
 }
 

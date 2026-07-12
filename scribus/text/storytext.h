@@ -29,6 +29,7 @@ pageitem.cpp  -  description
 #include <QObject>
 #include <QString>
 #include <QList>
+#include <QHash>
 #include <unicode/uversion.h>
 
 #include "itextsource.h"
@@ -289,6 +290,10 @@ public:
 	bool hasFlag(int pos, LayoutFlags flag) const override;
 	void setFlag(int pos, LayoutFlags flag) override;
 	void clearFlag(int pos, LayoutFlags flag) override;
+
+	/// cache of max list-marker width per list key; shared across every
+	/// frame referencing this story, invalidated on any edit
+	QHash<QString, double>& maxParEffectWidthCache();
 
 //  when physical view doesn't match logical view any more:
 

@@ -2,6 +2,7 @@
 #define SCTEXT_SHARED_H
 
 #include <QList>
+#include <QHash>
 #include <QObject>
 #include <QString>
 #include <cassert>
@@ -34,6 +35,10 @@ public:
 	bool marksCountChanged { false };
 	ParagraphStyle trailingStyle;
 	CharStyle orphanedCharStyle;
+
+	/// max list-marker width per list key, shared by every frame in the chain;
+	/// cleared whenever text or styles change
+	QHash<QString, double> maxParEffectWidthCache;
 
 	void clear();
 	

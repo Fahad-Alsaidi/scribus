@@ -1391,6 +1391,11 @@ void StoryText::clearFlag(int pos, LayoutFlags flags)
 	d->at(pos)->setEffects(~(flags & ScStyle_NonUserStyles) & d->at(pos)->effects().value);
 }
 
+QHash<QString, double> &StoryText::maxParEffectWidthCache()
+{
+	return d->maxParEffectWidthCache;
+}
+
 
 const CharStyle & StoryText::charStyle() const
 {
@@ -2261,6 +2266,10 @@ void StoryText::invalidate(int firstItem, int endItem)
 		if (par)
 			par->charStyleContext()->invalidate();
 	}
+	// a list marker's max width can depend on any character in the story,
+	// so any edit can change it; drop the whole cache to stay safe
+	d->maxParEffectWidthCache.clear();
+
 	if (!signalsBlocked())
 		emit changed(firstItem, endItem);
 }
