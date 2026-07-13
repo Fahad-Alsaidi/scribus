@@ -77,6 +77,7 @@ struct NumStruct
 	QString m_name;
 	QList<Numeration> m_nums;
 	QList<int> m_counters;
+	QList<int> m_maxCounters;   // highest value m_counters ever reached, per level
 	int m_lastlevel { -1 };
 };
 

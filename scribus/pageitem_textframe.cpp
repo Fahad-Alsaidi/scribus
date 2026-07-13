@@ -1078,18 +1078,63 @@ double calculateLineSpacing (const ParagraphStyle &style, PageItem *item)
 static QString numListKey(const ParagraphStyle& style)
 {
 	return style.numName() + QLatin1Char('\x1f')
-		 + QString::number(style.numFormat()) + QLatin1Char('\x1f')
-		 + style.numPrefix() + QLatin1Char('\x1f')
-		 + style.numSuffix();
+		+ QString::number(style.numFormat()) + QLatin1Char('\x1f')
+		+ style.numPrefix() + QLatin1Char('\x1f')
+		+ style.numSuffix() + QLatin1Char('\x1f')
+		+ QString::number(style.numLevel());
+}
+// Build the text a given count would produce for this list level.
+// Pure string formatting — no document access, no shaping.
+static QString candidateMarkerString(const ParagraphStyle& style, int count)
+{
+	Numeration num;
+	num.numFormat = static_cast<NumFormat>(style.numFormat());
+	QString result = style.numPrefix();
+	result += num.numString(count);
+	result += style.numSuffix();
+	return result;
 }
 
-static double maxParagraphEffectWidth(PageItem* item, const QString& targetListKey)
+// Shape one or more short candidate strings through the real font/kerning
+// path and return the widest rendered result. The candidates are synthetic
+// (not real document text), so this never depends on itemText or frame chains.
+static double shapeCandidateWidths(PageItem* item, const ParagraphStyle& style, const QStringList& candidates)
 {
-	QHash<QString, double>& cache = item->itemText.maxParEffectWidthCache();
-	auto cacheIt = cache.constFind(targetListKey);
-	if (cacheIt != cache.constEnd())
-		return cacheIt.value();
+	StoryText probe(item->doc());
+	for (const QString& candidate : candidates)
+	{
+		if (probe.length() > 0)
+			probe.insertChars(SpecialChars::PARSEP);
+		int pos = probe.length();
+		probe.insertChars(candidate);
+		probe.applyStyle(pos, style);
+		probe.applyCharStyle(pos, candidate.length(), style.charStyle());
+	}
 
+	QList<GlyphCluster> glyphClusters;
+	ShapedTextFeed feed(&probe, 0, item);
+	for (int i = 0; feed.haveMoreText(i, glyphClusters); ++i)
+		;
+
+	double maxWidth = 0.0, current = 0.0;
+	int prevA = -1;
+	for (const auto& glyph : as_const(glyphClusters))
+	{
+		int a = glyph.firstChar();
+		if (probe.isBlockStart(a) && a != prevA)
+		{
+			prevA = a;
+			maxWidth = qMax(maxWidth, current);
+			current = 0.0;
+		}
+		current += glyph.width();
+	}
+	return qMax(maxWidth, current);
+}
+static double maxParagraphEffectWidthLegacyScan(PageItem* item, const QString& targetListKey)
+{
+	// Fallback only: used when counter data isn't available yet
+	// (e.g. numbering hasn't run for this list this pass).
 	ShapedTextFeed shapedText(&item->itemText, 0, item);
 
 	QList<GlyphCluster> glyphClusters;
@@ -1123,8 +1168,58 @@ static double maxParagraphEffectWidth(PageItem* item, const QString& targetListK
 			}
 		}
 	}
-	cache.insert(targetListKey, maxParEffectWidth);
 	return maxParEffectWidth;
+}
+
+static double maxParagraphEffectWidth(PageItem* item, const QString& targetListKey, const ParagraphStyle& style)
+{
+	QHash<QString, double>& sharedCache = item->itemText.maxParEffectWidthCache();
+	auto cacheIt = sharedCache.constFind(targetListKey);
+	if (cacheIt != sharedCache.constEnd())
+		return cacheIt.value();
+
+	ScribusDoc* doc = item->doc();
+	NumStruct* numS = doc ? doc->numerations.value(style.numName(), nullptr) : nullptr;
+	int level = style.numLevel();
+
+	double result;
+	if (!numS || level < 0 || level >= numS->m_maxCounters.count())
+	{
+		result = maxParagraphEffectWidthLegacyScan(item, targetListKey);
+	}
+	else
+	{
+		int maxCount = qMax(1, numS->m_maxCounters.at(level));
+		auto fmt = static_cast<NumFormat>(style.numFormat());
+
+		QStringList candidates;
+		if (fmt == Type_1_2_3 || fmt == Type_1_2_3_ar)
+		{
+			candidates << candidateMarkerString(style, maxCount);
+		}
+		else
+		{
+			int longestLen = -1;
+			for (int n = 1; n <= maxCount; ++n)
+			{
+				QString candidate = candidateMarkerString(style, n);
+				if (candidate.length() > longestLen)
+				{
+					longestLen = candidate.length();
+					candidates.clear();
+					candidates << candidate;
+				}
+				else if (candidate.length() == longestLen)
+				{
+					candidates << candidate;
+				}
+			}
+		}
+		result = style.parEffectOffset() + shapeCandidateWidths(item, style, candidates);
+	}
+
+	sharedCache.insert(targetListKey, result);
+	return result;
 }
 
 // This assumes that layout() ran on the previous page and set the incomplete* vars
@@ -1871,7 +1966,7 @@ void PageItem_TextFrame::layout()
 						{
 							const QString listKey = numListKey(style);
 							if (!cachedMaxParEffectWidthByList.contains(listKey))
-								cachedMaxParEffectWidthByList[listKey] = maxParagraphEffectWidth(this, listKey);
+								cachedMaxParEffectWidthByList[listKey] = maxParagraphEffectWidth(this, listKey,style);
 
 							double maxParEffectWidth = cachedMaxParEffectWidthByList.value(listKey);
 

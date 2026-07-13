@@ -17731,6 +17731,11 @@ void ScribusDoc::setNumerationCounter(const QString& numName, int level, int num
 		numS->m_counters.insert(level, number);
 	else
 		numS->m_counters.replace(level, number);
+
+	while (numS->m_maxCounters.count() <= level)
+			numS->m_maxCounters.append(0);
+		if (number > numS->m_maxCounters.at(level))
+			numS->m_maxCounters.replace(level, number);
 }
 
 int ScribusDoc::updateLocalNums(StoryText& itemText)
