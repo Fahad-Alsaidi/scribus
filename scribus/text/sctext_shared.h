@@ -40,6 +40,9 @@ public:
 	/// cleared whenever text or styles change
 	QHash<QString, double> maxParEffectWidthCache;
 
+	mutable QString cachedPlainText;
+	mutable bool plainTextValid = false;
+
 	void clear();
 	
 	/**

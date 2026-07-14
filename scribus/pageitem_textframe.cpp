@@ -5074,6 +5074,7 @@ bool PageItem_TextFrame::checkKeyIsShortcut(QKeyEvent *k)
 
 void PageItem_TextFrame::updateBulletsNum()
 {
+	itemText.blockSignals(true);
 	for (int index = 0; index < itemText.length(); ++index)
 	{
 		Mark* mark = itemText.mark(index);
@@ -5169,7 +5170,7 @@ void PageItem_TextFrame::updateBulletsNum()
 		}
 
 	}
-
+	itemText.blockSignals(false);
 	m_Doc->updateNumbers();
 }
 

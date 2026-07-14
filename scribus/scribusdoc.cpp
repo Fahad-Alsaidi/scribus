@@ -17743,7 +17743,7 @@ int ScribusDoc::updateLocalNums(StoryText& itemText)
 	int firstInvalidChar = -1;
 	QVector<Numeration> nums;
 	QList<int> counters;
-
+	itemText.blockSignals(true);
 	for (int pos = 0; pos < itemText.length(); ++pos)
 	{
 		if (pos != 0 && itemText.text(pos - 1) != SpecialChars::PARSEP)
@@ -17823,6 +17823,7 @@ int ScribusDoc::updateLocalNums(StoryText& itemText)
 				firstInvalidChar = pos;
 		}
 	}
+	itemText.blockSignals(false);
 	return firstInvalidChar;
 }
 
@@ -17906,7 +17907,6 @@ void ScribusDoc::updateNumbers(bool updateNumerations)
 		if (item->itemText.length() <= 0)
 			continue;
 		int firstInvalidChar1 = -1;
-
 		while (pos < item->itemText.length())
 		{
 			if ((pos == 0) || (item->itemText.text(pos - 1) == SpecialChars::PARSEP))
@@ -17962,7 +17962,6 @@ void ScribusDoc::updateNumbers(bool updateNumerations)
 					pos = item->itemText.nextParagraph(pos) + 1;
 			}
 		}
-
 		// Update local numbering
 		int firstInvalidChar2 = updateLocalNums(item->itemText);
 

@@ -27,7 +27,6 @@ pageitem.cpp  -  description
 //FIXME: this include must go to sctextstruct.h !
 #include <QList>
 #include <cassert>  //added to make Fedora-5 happy
-
 #include "notesstyles.h"
 #include "scribusdoc.h"
 #include "sctext_shared.h"
@@ -699,6 +698,7 @@ void StoryText::removeChars(int pos, uint len)
 		d->selFirst =  0;
 		d->selLast  = -1;
 	}
+	d->plainTextValid = false;
 	invalidate(pos, length());
 }
 
@@ -773,6 +773,7 @@ void StoryText::insertChars(int pos, const QString& txt, bool applyNeighbourStyl
 	d->len = d->count();
 	if ((d->selLast >= d->selFirst) && (d->selFirst <= pos) && (pos <= d->selLast))
 		d->selLast += txt.length();
+	d->plainTextValid = false;
 	invalidate(pos, pos + txt.length());
 }
 
@@ -833,6 +834,7 @@ void StoryText::insertCharsWithSoftHyphens(int pos, const QString& txt, bool app
 	d->len = d->count();
 	if ((d->selLast >= d->selFirst) && (d->selFirst <= pos) && (pos <= d->selLast))
 		d->selLast += inserted;
+	d->plainTextValid = false;
 	invalidate(pos, pos + inserted);
 }
 
@@ -860,7 +862,7 @@ void StoryText::replaceChar(int pos, QChar ch)
 
 	if (oldMarksCount != d->marksCount)
 		d->marksCountChanged = true;
-	
+	d->plainTextValid = false;
 	invalidate(pos, pos + 1);
 }
 
@@ -1023,6 +1025,8 @@ QString StoryText::plainText() const
 {
 	if (length() <= 0)
 		return QString();
+	if (d->plainTextValid)
+		return d->cachedPlainText;
 
 	QChar   ch;
 	QString result;
@@ -1037,7 +1041,8 @@ QString StoryText::plainText() const
 			ch = QLatin1Char('\n');
 		result += ch;
 	}
-
+	d->cachedPlainText = result;
+	d->plainTextValid  = true;
 	return result;
 }
 #if 0
