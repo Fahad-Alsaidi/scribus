@@ -1386,7 +1386,6 @@ void TabPDFOptions::checkEmbeddableFonts()
 
 QListWidgetItem* TabPDFOptions::addFontItem(const QString& fontName, QListWidget* fontList)
 {
-	QListWidgetItem* item = nullptr;
 	if (!AllFonts.contains(fontName))
 		return nullptr;
 

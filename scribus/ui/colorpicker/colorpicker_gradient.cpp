@@ -73,7 +73,11 @@ void ColorPickerGradient::connectSlots()
 	connect(sectionVector,			&SectionContainer::collapsedStateChanged,				this, &ColorPickerGradient::handleGradientEditProperties);
 	connect(swatches,				&ColorPickerGradientSwatches::gradientChanged,			this, &ColorPickerGradient::updateGradientFromSwatches);
 	connect(gradientSelector,		&QComboBox::currentIndexChanged,						this, &ColorPickerGradient::updateGradientTypeFromSelector);
+#if QT_VERSION >= QT_VERSION_CHECK(6, 7, 0)
+	connect(checkboxLumAlpha,		&QCheckBox::checkStateChanged,							this, &ColorPickerGradient::gradientChanged);
+#else
 	connect(checkboxLumAlpha,		&QCheckBox::stateChanged,								this, &ColorPickerGradient::gradientChanged);
+#endif
 	connect(gradientEditor,			&GradientEditor::gradientChanged,						this, &ColorPickerGradient::updateGradientFromEditor);
 	connect(gradientEditor,			&GradientEditor::repeatMethodChanged,					this, &ColorPickerGradient::updateRepeatMethod);
 	connect(properties,				&ColorPickerGradientProperties::gradientVectorChanged,	this, &ColorPickerGradient::gradientVectorChanged);
@@ -102,7 +106,11 @@ void ColorPickerGradient::disconnectSlots()
 	disconnect(sectionVector,		&SectionContainer::collapsedStateChanged,				this, &ColorPickerGradient::handleGradientEditProperties);
 	disconnect(swatches,			&ColorPickerGradientSwatches::gradientChanged,			this, &ColorPickerGradient::updateGradientFromSwatches);
 	disconnect(gradientSelector,	&QComboBox::currentIndexChanged,						this, &ColorPickerGradient::updateGradientTypeFromSelector);
+#if QT_VERSION >= QT_VERSION_CHECK(6, 7, 0)
+	disconnect(checkboxLumAlpha,	&QCheckBox::checkStateChanged,							this, &ColorPickerGradient::gradientChanged);
+#else
 	disconnect(checkboxLumAlpha,	&QCheckBox::stateChanged,								this, &ColorPickerGradient::gradientChanged);
+#endif
 	disconnect(gradientEditor,		&GradientEditor::gradientChanged,						this, &ColorPickerGradient::updateGradientFromEditor);
 	disconnect(gradientEditor,		&GradientEditor::repeatMethodChanged,					this, &ColorPickerGradient::updateRepeatMethod);
 	disconnect(properties,			&ColorPickerGradientProperties::gradientVectorChanged,	this, &ColorPickerGradient::gradientVectorChanged);

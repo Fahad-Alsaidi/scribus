@@ -240,10 +240,16 @@ BarcodeGenerator::BarcodeGenerator(QWidget* parent, const char* name)
 
 	// UI controls → options text sync (immediate render)
 	auto immediateSync = [this]() { updateOptionsTextFromUI(); enqueuePaintBarcode(0); };
-	for (auto* cb : {ui.includetextCheck, ui.guardwhitespaceCheck, ui.includecheckCheck,
+	for (auto* cb : { ui.includetextCheck, ui.guardwhitespaceCheck, ui.includecheckCheck,
 					  ui.includecheckintextCheck, ui.parseCheck, ui.parsefncCheck,
-					  ui.dottyCheck, ui.cropCheck})
+					  ui.dottyCheck, ui.cropCheck })
+	{
+#if QT_VERSION >= QT_VERSION_CHECK(6, 7, 0)
+		connect(cb, &QCheckBox::checkStateChanged, this, immediateSync);
+#else
 		connect(cb, &QCheckBox::stateChanged, this, immediateSync);
+#endif
+	}
 	for (auto* combo : {ui.formatCombo, ui.eccCombo, ui.textfontCombo,
 						 ui.textdirectionCombo, ui.textxalignCombo, ui.textyalignCombo})
 		connect(combo, &QComboBox::currentIndexChanged, this, immediateSync);

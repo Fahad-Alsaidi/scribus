@@ -245,8 +245,6 @@ void PagePresetManager::parseCollectionFile(const QString &filePath, PageSizeTyp
 		return;
 	}
 
-	PrefsManager &prefsManager = PrefsManager::instance();
-
 	QXmlStreamReader xml(&file);
 	PageCollectionInfo currentMeta;
 	currentMeta.type = type;

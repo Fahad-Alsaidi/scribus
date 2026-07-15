@@ -126,7 +126,11 @@ NewDocDialog::NewDocDialog(QWidget* parent, const QStringList& recentDocs, bool 
 	connect(buttonBindingDirection, &QToolButton::toggled, this, &NewDocDialog::setBindingDirection);
 	connect(unitOfMeasureComboBox, &QComboBox::activated, this, &NewDocDialog::setUnit);
 	connect(Distance, &ScrSpinBox::valueChanged, this, &NewDocDialog::setDistance);
+#if QT_VERSION >= QT_VERSION_CHECK(6, 7, 0)
+	connect(autoTextFrame, &QCheckBox::checkStateChanged, this, &NewDocDialog::handleAutoFrame);
+#else
 	connect(autoTextFrame, &QCheckBox::stateChanged, this, &NewDocDialog::handleAutoFrame);
+#endif
 	connect(listPageFormats, &PageSizeList::clicked, this, &NewDocDialog::changePageSize);
 	connect(listPageFormats, &PageSizeList::changedCategories, this, &NewDocDialog::updateCategorySelector);
 	connect(pageSizeSelector, &PageSizeSelector::pageCategoryChanged, this, &NewDocDialog::changeCategory);
