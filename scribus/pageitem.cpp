@@ -86,7 +86,7 @@ for which a new license (GPL+exception) is in place.
 #include "util_math.h"
 
 
-
+static QHash<const PageItem*, QPair<int,int>> s_shadowCacheStats; // <hits, misses>
 
 using namespace std;
 
@@ -2204,6 +2204,17 @@ void PageItem::DrawSoftShadow(ScPainter *p)
 		tmp = defect.convertDefect(tmp, m_Doc->previewVisual);
 	}
 	p->save();
+	// Clip to item bounds + shadow offset + blur radius, so beginLayer()
+	// creates a small surface instead of one sized to the whole viewport.
+	double blurMargin = (m_softShadowBlurRadius * sc)
+					   + qMax(fabs(m_softShadowXOffset), fabs(m_softShadowYOffset)) * sc
+					   + 2;
+	QPainterPath clp;
+	clp.addRect(-blurMargin, -blurMargin, m_width + 2 * blurMargin, m_height + 2 * blurMargin);
+	FPointArray clpArr;
+	clpArr.fromQPainterPath(clp);
+	p->setupPolygon(&clpArr);
+	p->setClipPath();
 	if (m_softShadowHasObjectTransparency)
 		p->beginLayer(1.0 - fillTransparency(), m_softShadowBlendMode);
 	else
@@ -2220,13 +2231,59 @@ void PageItem::DrawSoftShadow(ScPainter *p)
 		m_lineTransparency = 0.0;
 		m_rotation = 0;
 		m_hasSoftShadow = false;
-		p->save();
-		p->translate(xOffset, yOffset);
-		DrawObj(p, QRectF());
-		p->colorizeAlpha(tmp);
-		if (m_softShadowBlurRadius > 0)
-			p->blur(m_softShadowBlurRadius * sc);
-		p->restore();
+
+		bool cacheableItem = (asImageFrame() != nullptr) || (asTextFrame() != nullptr);
+		if (cacheableItem)
+		{
+			double marginLogical = m_softShadowBlurRadius + qMax(fabs(xOffset), fabs(yOffset)) + 1.0;
+			qint64 srcKey = (asImageFrame() != nullptr && pixm.qImagePtr()) ? pixm.qImagePtr()->cacheKey() : 0;
+			double imgXScale = (asImageFrame() != nullptr) ? m_imageXScale : 1.0;
+			double imgYScale = (asImageFrame() != nullptr) ? m_imageYScale : 1.0;
+
+			int slot = shadowCacheSlotFor(sc, m_softShadowBlurRadius, xOffset, yOffset,
+										  m_width, m_height, m_softShadowColor, m_softShadowShade,
+										  srcKey, imgXScale, imgYScale);
+
+			if (slot < 0)
+			{
+				slot = (m_shadowCacheLastWriteSlot + 1) % 2; // round-robin: don't clobber the slot we just wrote
+
+				int pixelW = qMax(1, (int)ceil((m_width  + 2.0 * marginLogical) * sc));
+				int pixelH = qMax(1, (int)ceil((m_height + 2.0 * marginLogical) * sc));
+
+				QImage shadowBuf(pixelW, pixelH, QImage::Format_ARGB32_Premultiplied);
+				shadowBuf.fill(0);
+
+				ScPainter tempP(&shadowBuf, pixelW, pixelH);
+				tempP.setZoomFactor(sc);
+				tempP.translate(marginLogical, marginLogical);
+				tempP.translate(xOffset, yOffset);
+				DrawObj(&tempP, QRectF());
+				if (m_softShadowBlurRadius > 0)
+					tempP.blurAlpha(m_softShadowBlurRadius * sc);
+				tempP.colorizeAlphaPremultiplied(tmp);
+				updateShadowCache(slot, shadowBuf, sc, m_softShadowBlurRadius, xOffset, yOffset,
+								  m_width, m_height, m_softShadowColor, m_softShadowShade,
+								  srcKey, imgXScale, imgYScale);
+				m_shadowCacheLastWriteSlot = slot;
+			}
+
+			p->save();
+			p->translate(-marginLogical, -marginLogical);
+			p->drawDeviceImage(&shadowCacheAt(slot));
+			p->restore();
+		}
+		else
+		{
+			p->save();
+			p->translate(xOffset, yOffset);
+			DrawObj(p, QRectF());
+			p->colorizeAlpha(tmp);
+			if (m_softShadowBlurRadius > 0)
+				p->blur(m_softShadowBlurRadius * sc);
+			p->restore();
+		}
+
 		if (m_softShadowErasedByObject)
 		{
 			p->save();
@@ -2274,6 +2331,12 @@ void PageItem::DrawSoftShadow(ScPainter *p)
 				p->strokePath();
 			}
 		}
+	}
+	static int s_dumpCounter = 0;
+	if (++s_dumpCounter % 200 == 0)
+	{
+		for (auto it = s_shadowCacheStats.constBegin(); it != s_shadowCacheStats.constEnd(); ++it)
+			qWarning() << "shadow stats" << it.key() << "hits" << it.value().first << "misses" << it.value().second;
 	}
 	p->endLayer();
 	p->restore();
@@ -11389,6 +11452,51 @@ QString PageItem::getItemTextSaxed(int selStart, int selLength)
 	xmlStream.endDoc();
 	std::string xml(xmlString.str());
 	return QString(xml.c_str());
+}
+
+int PageItem::shadowCacheSlotFor(double zoom, double radius, double xOff, double yOff,
+								 double w, double h, const QString &color, int shade, qint64 sourceKey,
+								 double imgXScale, double imgYScale) const
+{
+	for (int i = 0; i < 2; ++i)
+	{
+		const ShadowCacheEntry &e = m_shadowCacheSlots[i];
+		if (e.ready
+			&& qFuzzyCompare(e.zoom, zoom)
+			&& qFuzzyCompare(e.radius, radius)
+			&& qFuzzyCompare(e.xOffset, xOff)
+			&& qFuzzyCompare(e.yOffset, yOff)
+			&& qFuzzyCompare(e.w, w)
+			&& qFuzzyCompare(e.h, h)
+			&& e.color == color
+			&& e.shade == shade
+			&& e.sourceKey == sourceKey
+			&& qFuzzyCompare(e.imgXScale, imgXScale)
+			&& qFuzzyCompare(e.imgYScale, imgYScale)
+			&& !e.image.isNull())
+			return i;
+	}
+	return -1;
+}
+
+void PageItem::updateShadowCache(int slot, const QImage &img, double zoom, double radius, double xOff, double yOff,
+								 double w, double h, const QString &color, int shade, qint64 sourceKey,
+								 double imgXScale, double imgYScale)
+{
+	ShadowCacheEntry &e = m_shadowCacheSlots[slot];
+	e.image = img;
+	e.zoom = zoom;
+	e.radius = radius;
+	e.xOffset = xOff;
+	e.yOffset = yOff;
+	e.w = w;
+	e.h = h;
+	e.color = color;
+	e.shade = shade;
+	e.sourceKey = sourceKey;
+	e.imgXScale = imgXScale;
+	e.imgYScale = imgYScale;
+	e.ready = true;
 }
 
 QPainterPath PageItem::checkMarkPath() const

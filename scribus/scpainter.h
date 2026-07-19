@@ -92,6 +92,10 @@ public:
 	virtual void setClipPath();
 
 	virtual void drawImage(QImage *image);
+	// Paints `image` 1 image-pixel = 1 device-pixel, ignoring the current
+	// zoom baked into the transform. Use for buffers already rendered at
+	// device resolution (e.g. an offscreen shadow bitmap).
+	virtual void drawDeviceImage(const QImage *image);
 	virtual void setupPolygon(const FPointArray *points, bool closed = true);
 	virtual void setupSharpPolygon(const FPointArray *points, bool closed = true);
 	virtual void sharpLineHelper(FPoint &pp);
@@ -110,6 +114,11 @@ public:
 	virtual void drawUnderlinedRect(const QRectF &r, const QColor& color, int lineWidth);
 	virtual void colorizeAlpha(const QColor& color);
 	virtual void colorize(const QColor& color);
+	// Same as colorizeAlpha(), but scales the color by alpha before storing,
+	// as required for a premultiplied surface. Needed after blurAlpha(),
+	// since blurring creates partial-alpha pixels that colorizeAlpha()'s
+	// full-strength write would store incorrectly.
+	virtual void colorizeAlphaPremultiplied(const QColor& color);
 	virtual void blurAlpha(int radius);
 	virtual void blur(int radius);
 
@@ -141,10 +150,29 @@ public:
 	VGradient mask_gradient;
 	ScPattern *m_maskPattern { nullptr };
 	ScPattern *m_pattern { nullptr };
-
+	QImage grabGroupSnapshot() const;
+	void putGroupSnapshot(const QImage &img);
 private:
 	void fillPathHelper();
 	void strokePathHelper();
+
+	// Scratch buffers reused across blur() calls to avoid new/delete churn.
+	// Grown on demand, never shrunk, freed in the destructor.
+	int    *m_blurBufR { nullptr };
+	int    *m_blurBufG { nullptr };
+	int    *m_blurBufB { nullptr };
+	int    *m_blurBufA { nullptr };
+	size_t  m_blurBufCapacity { 0 };     // capacity in pixels (w*h) for r/g/b/a
+
+	int    *m_blurVmin { nullptr };
+	size_t  m_blurVminCapacity { 0 };    // capacity = max(w,h)
+
+	int    *m_blurDv { nullptr };
+	size_t  m_blurDvCapacity { 0 };      // capacity = 256*divsum
+
+	int    *m_blurStackData { nullptr };
+	int   **m_blurStack { nullptr };
+	size_t  m_blurStackCapacity { 0 };   // capacity = div (radius*2+1)
 
 	cairo_t* m_cr { nullptr };
 	struct layerProp

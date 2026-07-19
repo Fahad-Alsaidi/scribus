@@ -161,12 +161,31 @@ void PageItem_ImageFrame::DrawObj_Item(ScPainter *p, const QRectF& /*e*/)
 		p->rotate(m_imageRotation);
 		double mscalex = 1.0 / m_imageXScale;
 		double mscaley = 1.0 / m_imageYScale;
-		p->scale(m_imageXScale, m_imageYScale);
+
+		double totalScaleX = m_imageXScale;
+		double totalScaleY = m_imageYScale;
 		if (pixm.imgInfo.lowResType != 0)
 		{
-			p->scale(pixm.imgInfo.lowResScale, pixm.imgInfo.lowResScale);
+			totalScaleX *= pixm.imgInfo.lowResScale;
+			totalScaleY *= pixm.imgInfo.lowResScale;
 			mscalex *= 1.0 / pixm.imgInfo.lowResScale;
 			mscaley *= 1.0 / pixm.imgInfo.lowResScale;
+		}
+
+		QImage *src = pixm.qImagePtr();
+		bool cacheValid = (src->cacheKey() == m_cachedSourceCacheKey)
+						  && qFuzzyCompare(m_cachedImageXScale, totalScaleX)
+						  && qFuzzyCompare(m_cachedImageYScale, totalScaleY)
+						  && !m_scaledImageCache.isNull();
+
+		if (!cacheValid)
+		{
+			int targetW = qMax(1, qRound(src->width() * totalScaleX));
+			int targetH = qMax(1, qRound(src->height() * totalScaleY));
+			m_scaledImageCache = src->scaled(targetW, targetH, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+			m_cachedSourceCacheKey = src->cacheKey();
+			m_cachedImageXScale = totalScaleX;
+			m_cachedImageYScale = totalScaleY;
 		}
 		if ((GrMask == GradMask_Linear) || (GrMask == GradMask_Radial) || (GrMask == GradMask_LinearLumAlpha) || (GrMask == GradMask_RadialLumAlpha))
 		{
@@ -206,7 +225,7 @@ void PageItem_ImageFrame::DrawObj_Item(ScPainter *p, const QRectF& /*e*/)
 		}
 		else
 			p->setMaskMode(0);
-		p->drawImage(pixm.qImagePtr());
+		p->drawImage(&m_scaledImageCache);
 	}
 	p->restore();
 }

@@ -25,6 +25,7 @@ for which a new license (GPL+exception) is in place.
 #include <QString>
 #include <QRectF>
 #include <QKeyEvent>
+#include <QImage>
 
 #include "scribusapi.h"
 #include "pageitem.h"
@@ -50,9 +51,15 @@ public:
 	bool createInfoGroup(QFrame *, QGridLayout *) override;
 	void applicableActions(QStringList& actionList) override;
 	QString infoDescription() const override;
-	
+
 protected:
 	void DrawObj_Item(ScPainter *p, const QRectF& e) override;
+
+private:
+	QImage m_scaledImageCache;
+	double m_cachedImageXScale { 0.0 };
+	double m_cachedImageYScale { 0.0 };
+	qint64 m_cachedSourceCacheKey { 0 };
 
 };
 

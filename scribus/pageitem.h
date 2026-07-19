@@ -1304,6 +1304,15 @@ public: // Start public functions
 	/// Sets whether the table uses right-to-left layout.
 	void setRTL(bool rtl) { m_rtl = rtl; }
 
+	// Returns the matching slot index (0 or 1), or -1 if neither slot matches.
+	int shadowCacheSlotFor(double zoom, double radius, double xOff, double yOff,
+						   double w, double h, const QString &color, int shade, qint64 sourceKey,
+						   double imgXScale, double imgYScale) const;
+	const QImage& shadowCacheAt(int slot) const { return m_shadowCacheSlots[slot].image; }
+	void updateShadowCache(int slot, const QImage &img, double zoom, double radius, double xOff, double yOff,
+						   double w, double h, const QString &color, int shade, qint64 sourceKey,
+						   double imgXScale, double imgYScale);
+
 		// End public functions
 
 public:	// Start public variables
@@ -1918,6 +1927,28 @@ protected: // Start protected variables
 	int     m_softShadowBlendMode {0};
 	bool    m_softShadowErasedByObject {false};
 	bool    m_softShadowHasObjectTransparency {false};
+
+	struct ShadowCacheEntry
+	{
+		QImage  image;
+		bool    ready { false };
+		double  zoom { -1.0 };
+		double  radius { -1.0 };
+		double  xOffset { 0.0 };
+		double  yOffset { 0.0 };
+		double  w { -1.0 };
+		double  h { -1.0 };
+		QString color;
+		int     shade { -1 };
+		qint64  sourceKey { 0 };
+		double  imgXScale { -1.0 };
+		double  imgYScale { -1.0 };
+	};
+	// 2 slots: different renderers (e.g. Pages-palette thumbnails vs. the
+	// main canvas) draw the same item at different zoom levels concurrently.
+	// One slot would have them constantly evicting each other's result.
+	ShadowCacheEntry m_shadowCacheSlots[2];
+	int m_shadowCacheLastWriteSlot { 0 };
 
 
 	///PageItem is LTR/RTL by default
