@@ -92,10 +92,12 @@ public:
 	virtual void setClipPath();
 
 	virtual void drawImage(QImage *image);
-	// Paints `image` 1 image-pixel = 1 device-pixel, ignoring the current
-	// zoom baked into the transform. Use for buffers already rendered at
-	// device resolution (e.g. an offscreen shadow bitmap).
-	virtual void drawDeviceImage(const QImage *image);
+	// Paints `image` assuming it was rendered at `imageScale` (logical
+	// units -> image pixels), positioning it correctly under the current
+	// transform regardless of the painter's own current zoom. Use for
+	// buffers rendered at a fixed reference resolution decoupled from
+	// whichever view is compositing them.
+	virtual void drawImageAtScale(const QImage *image, double imageScale);
 	virtual void setupPolygon(const FPointArray *points, bool closed = true);
 	virtual void setupSharpPolygon(const FPointArray *points, bool closed = true);
 	virtual void sharpLineHelper(FPoint &pp);

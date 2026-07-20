@@ -1419,18 +1419,18 @@ void ScPainter::drawImage(QImage *image)
 		cairo_pattern_destroy(patM);
 	}
 	else
-		cairo_paint_with_alpha (m_cr, m_fill_trans);
+		cairo_paint_with_alpha(m_cr, m_fill_trans);
 	cairo_set_operator(m_cr, CAIRO_OPERATOR_OVER);
 	cairo_set_antialias(m_cr, CAIRO_ANTIALIAS_DEFAULT);
 }
 
-void ScPainter::drawDeviceImage(const QImage *image)
+void ScPainter::drawImageAtScale(const QImage *image, double imageScale)
 {
 	cairo_surface_t *surf = cairo_image_surface_create_for_data(
 		(uchar*)image->constBits(), CAIRO_FORMAT_ARGB32,
 		image->width(), image->height(), image->bytesPerLine());
 	cairo_save(m_cr);
-	cairo_scale(m_cr, 1.0 / m_zoomFactor, 1.0 / m_zoomFactor);
+	cairo_scale(m_cr, 1.0 / imageScale, 1.0 / imageScale);
 	cairo_set_source_surface(m_cr, surf, 0, 0);
 	cairo_paint(m_cr);
 	cairo_restore(m_cr);

@@ -86,8 +86,15 @@ for which a new license (GPL+exception) is in place.
 #include "util_math.h"
 
 
-static QHash<const PageItem*, QPair<int,int>> s_shadowCacheStats; // <hits, misses>
-
+namespace {
+	// Shadow bitmaps are rendered once at this fixed scale, independent of
+	// whatever zoom the calling view (main canvas, Pages-palette thumbnail,
+	// etc.) happens to be using at the time. The cached bitmap is then
+	// scaled to fit whichever view is compositing it. This is what avoids
+	// re-rendering + re-blurring every time a different view/zoom asks for
+	// the same item's shadow -- no more per-view cache slots needed.
+	constexpr double kShadowCacheReferenceScale = 1.0;
+}
 using namespace std;
 
 PageItem::PageItem(const PageItem & other)
@@ -2232,45 +2239,49 @@ void PageItem::DrawSoftShadow(ScPainter *p)
 		m_rotation = 0;
 		m_hasSoftShadow = false;
 
-		bool cacheableItem = (asImageFrame() != nullptr) || (asTextFrame() != nullptr);
+		bool cacheableItem = (asImageFrame() != nullptr) || (asTextFrame() != nullptr) || (asPolygon() != nullptr);
 		if (cacheableItem)
 		{
-			double marginLogical = m_softShadowBlurRadius + qMax(fabs(xOffset), fabs(yOffset)) + 1.0;
+			// Use the shadow's own configured displacement here, NOT xOffset/yOffset --
+			// those are adjusted by -m_xPos/-m_yPos for non-embedded items (needed for
+			// correct translate() below), which can be in the thousands for items far
+			// from the page origin. Using that adjusted value here inflated the buffer
+			// to tens of megapixels per item.
+			double strokeMargin = hasStroke() ? (visualLineWidth() / 2.0) : 0.0;
+			double marginLogical = m_softShadowBlurRadius + qMax(fabs(xOffset), fabs(yOffset))+ strokeMargin + 1.0;
 			qint64 srcKey = (asImageFrame() != nullptr && pixm.qImagePtr()) ? pixm.qImagePtr()->cacheKey() : 0;
 			double imgXScale = (asImageFrame() != nullptr) ? m_imageXScale : 1.0;
 			double imgYScale = (asImageFrame() != nullptr) ? m_imageYScale : 1.0;
 
-			int slot = shadowCacheSlotFor(sc, m_softShadowBlurRadius, xOffset, yOffset,
-										  m_width, m_height, m_softShadowColor, m_softShadowShade,
-										  srcKey, imgXScale, imgYScale);
+			bool cacheValid = shadowCacheMatches(m_softShadowBlurRadius, xOffset, yOffset,
+												 m_width, m_height, m_softShadowColor, m_softShadowShade,
+												 srcKey, imgXScale, imgYScale);
 
-			if (slot < 0)
+			if (!cacheValid)
 			{
-				slot = (m_shadowCacheLastWriteSlot + 1) % 2; // round-robin: don't clobber the slot we just wrote
-
-				int pixelW = qMax(1, (int)ceil((m_width  + 2.0 * marginLogical) * sc));
-				int pixelH = qMax(1, (int)ceil((m_height + 2.0 * marginLogical) * sc));
+				int pixelW = qMax(1, (int)ceil((m_width  + 2.0 * marginLogical) * kShadowCacheReferenceScale));
+				int pixelH = qMax(1, (int)ceil((m_height + 2.0 * marginLogical) * kShadowCacheReferenceScale));
 
 				QImage shadowBuf(pixelW, pixelH, QImage::Format_ARGB32_Premultiplied);
 				shadowBuf.fill(0);
 
 				ScPainter tempP(&shadowBuf, pixelW, pixelH);
-				tempP.setZoomFactor(sc);
+				tempP.setZoomFactor(kShadowCacheReferenceScale);
 				tempP.translate(marginLogical, marginLogical);
 				tempP.translate(xOffset, yOffset);
 				DrawObj(&tempP, QRectF());
 				if (m_softShadowBlurRadius > 0)
-					tempP.blurAlpha(m_softShadowBlurRadius * sc);
+					tempP.blurAlpha(m_softShadowBlurRadius * kShadowCacheReferenceScale);
 				tempP.colorizeAlphaPremultiplied(tmp);
-				updateShadowCache(slot, shadowBuf, sc, m_softShadowBlurRadius, xOffset, yOffset,
+
+				updateShadowCache(shadowBuf, m_softShadowBlurRadius, xOffset, yOffset,
 								  m_width, m_height, m_softShadowColor, m_softShadowShade,
 								  srcKey, imgXScale, imgYScale);
-				m_shadowCacheLastWriteSlot = slot;
 			}
 
 			p->save();
 			p->translate(-marginLogical, -marginLogical);
-			p->drawDeviceImage(&shadowCacheAt(slot));
+			p->drawImageAtScale(&shadowCache(), kShadowCacheReferenceScale);
 			p->restore();
 		}
 		else
@@ -2331,12 +2342,6 @@ void PageItem::DrawSoftShadow(ScPainter *p)
 				p->strokePath();
 			}
 		}
-	}
-	static int s_dumpCounter = 0;
-	if (++s_dumpCounter % 200 == 0)
-	{
-		for (auto it = s_shadowCacheStats.constBegin(); it != s_shadowCacheStats.constEnd(); ++it)
-			qWarning() << "shadow stats" << it.key() << "hits" << it.value().first << "misses" << it.value().second;
 	}
 	p->endLayer();
 	p->restore();
@@ -11454,38 +11459,31 @@ QString PageItem::getItemTextSaxed(int selStart, int selLength)
 	return QString(xml.c_str());
 }
 
-int PageItem::shadowCacheSlotFor(double zoom, double radius, double xOff, double yOff,
-								 double w, double h, const QString &color, int shade, qint64 sourceKey,
-								 double imgXScale, double imgYScale) const
+bool PageItem::shadowCacheMatches(double radius, double xOff, double yOff,
+								  double w, double h, const QString &color, int shade, qint64 sourceKey,
+								  double imgXScale, double imgYScale) const
 {
-	for (int i = 0; i < 2; ++i)
-	{
-		const ShadowCacheEntry &e = m_shadowCacheSlots[i];
-		if (e.ready
-			&& qFuzzyCompare(e.zoom, zoom)
-			&& qFuzzyCompare(e.radius, radius)
-			&& qFuzzyCompare(e.xOffset, xOff)
-			&& qFuzzyCompare(e.yOffset, yOff)
-			&& qFuzzyCompare(e.w, w)
-			&& qFuzzyCompare(e.h, h)
-			&& e.color == color
-			&& e.shade == shade
-			&& e.sourceKey == sourceKey
-			&& qFuzzyCompare(e.imgXScale, imgXScale)
-			&& qFuzzyCompare(e.imgYScale, imgYScale)
-			&& !e.image.isNull())
-			return i;
-	}
-	return -1;
+	const ShadowCacheEntry &e = m_shadowCacheSlot;
+	return e.ready
+		   && qFuzzyCompare(e.radius, radius)
+		   && qFuzzyCompare(e.xOffset, xOff)
+		   && qFuzzyCompare(e.yOffset, yOff)
+		   && qFuzzyCompare(e.w, w)
+		   && qFuzzyCompare(e.h, h)
+		   && e.color == color
+		   && e.shade == shade
+		   && e.sourceKey == sourceKey
+		   && qFuzzyCompare(e.imgXScale, imgXScale)
+		   && qFuzzyCompare(e.imgYScale, imgYScale)
+		   && !e.image.isNull();
 }
 
-void PageItem::updateShadowCache(int slot, const QImage &img, double zoom, double radius, double xOff, double yOff,
+void PageItem::updateShadowCache(const QImage &img, double radius, double xOff, double yOff,
 								 double w, double h, const QString &color, int shade, qint64 sourceKey,
 								 double imgXScale, double imgYScale)
 {
-	ShadowCacheEntry &e = m_shadowCacheSlots[slot];
+	ShadowCacheEntry &e = m_shadowCacheSlot;
 	e.image = img;
-	e.zoom = zoom;
 	e.radius = radius;
 	e.xOffset = xOff;
 	e.yOffset = yOff;

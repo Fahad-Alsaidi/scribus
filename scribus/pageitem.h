@@ -1304,12 +1304,11 @@ public: // Start public functions
 	/// Sets whether the table uses right-to-left layout.
 	void setRTL(bool rtl) { m_rtl = rtl; }
 
-	// Returns the matching slot index (0 or 1), or -1 if neither slot matches.
-	int shadowCacheSlotFor(double zoom, double radius, double xOff, double yOff,
-						   double w, double h, const QString &color, int shade, qint64 sourceKey,
-						   double imgXScale, double imgYScale) const;
-	const QImage& shadowCacheAt(int slot) const { return m_shadowCacheSlots[slot].image; }
-	void updateShadowCache(int slot, const QImage &img, double zoom, double radius, double xOff, double yOff,
+	bool shadowCacheMatches(double radius, double xOff, double yOff,
+							double w, double h, const QString &color, int shade, qint64 sourceKey,
+							double imgXScale, double imgYScale) const;
+	const QImage& shadowCache() const { return m_shadowCacheSlot.image; }
+	void updateShadowCache(const QImage &img, double radius, double xOff, double yOff,
 						   double w, double h, const QString &color, int shade, qint64 sourceKey,
 						   double imgXScale, double imgYScale);
 
@@ -1932,7 +1931,6 @@ protected: // Start protected variables
 	{
 		QImage  image;
 		bool    ready { false };
-		double  zoom { -1.0 };
 		double  radius { -1.0 };
 		double  xOffset { 0.0 };
 		double  yOffset { 0.0 };
@@ -1944,11 +1942,10 @@ protected: // Start protected variables
 		double  imgXScale { -1.0 };
 		double  imgYScale { -1.0 };
 	};
-	// 2 slots: different renderers (e.g. Pages-palette thumbnails vs. the
-	// main canvas) draw the same item at different zoom levels concurrently.
-	// One slot would have them constantly evicting each other's result.
-	ShadowCacheEntry m_shadowCacheSlots[2];
-	int m_shadowCacheLastWriteSlot { 0 };
+	// Single slot: the cached bitmap is rendered at a fixed reference scale
+	// (see kShadowCacheReferenceScale in pageitem.cpp), not tied to any
+	// particular view's zoom, so every view can safely share it.
+	ShadowCacheEntry m_shadowCacheSlot;
 
 
 	///PageItem is LTR/RTL by default
