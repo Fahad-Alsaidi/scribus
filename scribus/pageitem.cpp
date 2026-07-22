@@ -2211,11 +2211,39 @@ void PageItem::DrawSoftShadow(ScPainter *p)
 		tmp = defect.convertDefect(tmp, m_Doc->previewVisual);
 	}
 	p->save();
-	// Clip to item bounds + shadow offset + blur radius, so beginLayer()
-	// creates a small surface instead of one sized to the whole viewport.
+
+	// Local-frame overhang beyond m_width/m_height that the shadow needs
+	// room for (currently: Line/PolyLine arrow heads). Must be computed
+	// BEFORE the clip path below -- otherwise this outer clip silently
+	// crops the composited shadow bitmap even when the bitmap itself was
+	// built wide enough. (This was the "arrow shadow cut in the middle" bug.)
+	double outerExtraMargin = 0.0;
+	if ((asLine() != nullptr) || (asPolyLine() != nullptr))
+	{
+		double savedRot = m_rotation;
+		m_rotation = 0.0;
+		QRectF startArrowRect = getStartArrowBoundingRect();
+		QRectF endArrowRect = getEndArrowBoundingRect();
+		m_rotation = savedRot;
+
+		for (const QRectF &r : { startArrowRect, endArrowRect })
+		{
+			if (r.isNull())
+				continue;
+			outerExtraMargin = qMax(outerExtraMargin, m_xPos - r.left());
+			outerExtraMargin = qMax(outerExtraMargin, r.right() - (m_xPos + m_width));
+			outerExtraMargin = qMax(outerExtraMargin, m_yPos - r.top());
+			outerExtraMargin = qMax(outerExtraMargin, r.bottom() - (m_yPos + m_height));
+		}
+	}
+
+	// Clip to item bounds + shadow offset + blur radius + arrow overhang,
+	// so beginLayer() creates a small surface instead of one sized to the
+	// whole viewport.
 	double blurMargin = (m_softShadowBlurRadius * sc)
-					   + qMax(fabs(m_softShadowXOffset), fabs(m_softShadowYOffset)) * sc
-					   + 2;
+			+ qMax(fabs(m_softShadowXOffset), fabs(m_softShadowYOffset)) * sc
+			+ (outerExtraMargin * sc)
+			+ 2;
 	QPainterPath clp;
 	clp.addRect(-blurMargin, -blurMargin, m_width + 2 * blurMargin, m_height + 2 * blurMargin);
 	FPointArray clpArr;
@@ -2239,23 +2267,57 @@ void PageItem::DrawSoftShadow(ScPainter *p)
 		m_rotation = 0;
 		m_hasSoftShadow = false;
 
-		bool cacheableItem = (asImageFrame() != nullptr) || (asTextFrame() != nullptr) || (asPolygon() != nullptr);
+		// Text can render past the frame's own bounds when it overflows --
+		// nothing in the text-layout engine clips it to m_width/m_height.
+		// frameOverflows() is the same check Scribus itself uses to show the
+		// red overflow marker, so an overflowing frame is excluded from the
+		// shadow cache; its shadow falls back to the uncached path.
+		// Overflowing text is allowed here: the fixed-size offscreen buffer
+		// naturally (and safely -- Cairo never draws past a surface's real
+		// pixel bounds) truncates the shadow silhouette at roughly the
+		// frame's edge, rather than following every overflowing glyph. This
+		// is an acceptable, intentional tradeoff -- treated as "shadow
+		// follows the frame," not "shadow follows the raw text content."
+		// Annotation popups stay excluded: a fixed ~250x250 popup cropped
+		// into a small item's buffer looks broken, not just truncated.
+		bool isSafeTextFrame = (asTextFrame() != nullptr) && !isAnnotation();
+		bool cacheableItem = (asImageFrame() != nullptr) || isSafeTextFrame
+				|| (asPolygon() != nullptr) || (asTable() != nullptr)
+				|| (asLatexFrame() != nullptr) || (asOSGFrame() != nullptr)
+				|| (asNoteFrame() != nullptr)
+				|| (asLine() != nullptr) || (asPolyLine() != nullptr);
+
 		if (cacheableItem)
 		{
-			// Use the shadow's own configured displacement here, NOT xOffset/yOffset --
-			// those are adjusted by -m_xPos/-m_yPos for non-embedded items (needed for
-			// correct translate() below), which can be in the thousands for items far
-			// from the page origin. Using that adjusted value here inflated the buffer
-			// to tens of megapixels per item.
-			double strokeMargin = hasStroke() ? (visualLineWidth() / 2.0) : 0.0;
-			double marginLogical = m_softShadowBlurRadius + qMax(fabs(xOffset), fabs(yOffset))+ strokeMargin + 1.0;
+			// Rotation-independent overhang: how far this item's actual painted
+			// content (stroke, arrows, etc.) extends past m_width/m_height, in
+			// its own unrotated local frame. Deliberately NOT using
+			// getVisualBoundingRect() directly -- its rotated branch returns a
+			// page-space rect built from xPos()/yPos(), which would mix rotated,
+			// absolute-position math into this unrotated buffer-sizing step.
+			double overhangLeft   = qMax(0.0, xPos() - visualXPos());
+			double overhangTop    = qMax(0.0, yPos() - visualYPos());
+			double overhangRight  = qMax(0.0, (visualXPos() + visualWidth())  - (xPos() + m_width));
+			double overhangBottom = qMax(0.0, (visualYPos() + visualHeight()) - (yPos() + m_height));
+			double extraMargin = qMax(qMax(overhangLeft, overhangRight), qMax(overhangTop, overhangBottom));
+
+			// Line/PolyLine arrow heads: getStart/EndArrowBoundingRect() return
+			// absolute, rotated page-space rects (they bake in m_xPos/m_yPos/
+			// m_rotation). Borrow the same rotation-zero window already used
+			// above so the rects come back unrotated, then extract only the
+			// LOCAL overhang (never the absolute rect itself) -- same safe
+			// pattern as every other margin term here.
+			extraMargin = qMax(extraMargin, outerExtraMargin);
+
+			double marginLogical = m_softShadowBlurRadius + qMax(fabs(xOffset), fabs(yOffset))
+					+ extraMargin + 1.0;
 			qint64 srcKey = (asImageFrame() != nullptr && pixm.qImagePtr()) ? pixm.qImagePtr()->cacheKey() : 0;
 			double imgXScale = (asImageFrame() != nullptr) ? m_imageXScale : 1.0;
 			double imgYScale = (asImageFrame() != nullptr) ? m_imageYScale : 1.0;
 
 			bool cacheValid = shadowCacheMatches(m_softShadowBlurRadius, xOffset, yOffset,
 												 m_width, m_height, m_softShadowColor, m_softShadowShade,
-												 srcKey, imgXScale, imgYScale);
+												 srcKey, imgXScale, imgYScale, marginLogical);
 
 			if (!cacheValid)
 			{
@@ -2276,7 +2338,7 @@ void PageItem::DrawSoftShadow(ScPainter *p)
 
 				updateShadowCache(shadowBuf, m_softShadowBlurRadius, xOffset, yOffset,
 								  m_width, m_height, m_softShadowColor, m_softShadowShade,
-								  srcKey, imgXScale, imgYScale);
+								  srcKey, imgXScale, imgYScale, marginLogical);
 			}
 
 			p->save();
@@ -11461,7 +11523,7 @@ QString PageItem::getItemTextSaxed(int selStart, int selLength)
 
 bool PageItem::shadowCacheMatches(double radius, double xOff, double yOff,
 								  double w, double h, const QString &color, int shade, qint64 sourceKey,
-								  double imgXScale, double imgYScale) const
+								  double imgXScale, double imgYScale, double margin) const
 {
 	const ShadowCacheEntry &e = m_shadowCacheSlot;
 	return e.ready
@@ -11475,12 +11537,13 @@ bool PageItem::shadowCacheMatches(double radius, double xOff, double yOff,
 		   && e.sourceKey == sourceKey
 		   && qFuzzyCompare(e.imgXScale, imgXScale)
 		   && qFuzzyCompare(e.imgYScale, imgYScale)
-		   && !e.image.isNull();
+		   && qFuzzyCompare(e.margin, margin)
+                   && !e.image.isNull();
 }
 
 void PageItem::updateShadowCache(const QImage &img, double radius, double xOff, double yOff,
 								 double w, double h, const QString &color, int shade, qint64 sourceKey,
-								 double imgXScale, double imgYScale)
+								 double imgXScale, double imgYScale, double margin)
 {
 	ShadowCacheEntry &e = m_shadowCacheSlot;
 	e.image = img;
@@ -11494,7 +11557,8 @@ void PageItem::updateShadowCache(const QImage &img, double radius, double xOff, 
 	e.sourceKey = sourceKey;
 	e.imgXScale = imgXScale;
 	e.imgYScale = imgYScale;
-	e.ready = true;
+	e.margin = margin;
+        e.ready = true;
 }
 
 QPainterPath PageItem::checkMarkPath() const

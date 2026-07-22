@@ -1306,11 +1306,11 @@ public: // Start public functions
 
 	bool shadowCacheMatches(double radius, double xOff, double yOff,
 							double w, double h, const QString &color, int shade, qint64 sourceKey,
-							double imgXScale, double imgYScale) const;
+							double imgXScale, double imgYScale, double margin) const;
 	const QImage& shadowCache() const { return m_shadowCacheSlot.image; }
 	void updateShadowCache(const QImage &img, double radius, double xOff, double yOff,
 						   double w, double h, const QString &color, int shade, qint64 sourceKey,
-						   double imgXScale, double imgYScale);
+						   double imgXScale, double imgYScale, double margin);
 
 		// End public functions
 
@@ -1941,6 +1941,7 @@ protected: // Start protected variables
 		qint64  sourceKey { 0 };
 		double  imgXScale { -1.0 };
 		double  imgYScale { -1.0 };
+        double  margin { -1.0 };
 	};
 	// Single slot: the cached bitmap is rendered at a fixed reference scale
 	// (see kShadowCacheReferenceScale in pageitem.cpp), not tied to any
